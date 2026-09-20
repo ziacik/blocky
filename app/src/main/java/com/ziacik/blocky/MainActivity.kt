@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -19,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -35,6 +37,8 @@ import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import com.ziacik.blocky.model.CategoryTotal
 import com.ziacik.blocky.model.ProductTotal
+import com.ziacik.blocky.model.Receipt
+import com.ziacik.blocky.model.ReceiptItem
 import com.ziacik.blocky.model.ReceiptSummary
 import com.ziacik.blocky.ui.MainUiState
 import com.ziacik.blocky.ui.MainViewModel
@@ -74,6 +78,8 @@ class MainActivity : ComponentActivity() {
 									viewModel.showMessage(error.message ?: "Skenovanie zlyhalo.")
 								}
 						},
+						onOpenReceipt = viewModel::openReceipt,
+						onCloseReceipt = viewModel::closeReceipt,
 					)
 				}
 			}
@@ -85,7 +91,14 @@ class MainActivity : ComponentActivity() {
 private fun BlockyHome(
 	state: MainUiState,
 	onScan: () -> Unit,
+	onOpenReceipt: (String) -> Unit,
+	onCloseReceipt: () -> Unit,
 ) {
+	state.selectedReceipt?.let { receipt ->
+		ReceiptDetail(receipt = receipt, onBack = onCloseReceipt)
+		return
+	}
+
 	Scaffold { innerPadding ->
 		LazyColumn(
 			modifier = Modifier
@@ -133,9 +146,84 @@ private fun BlockyHome(
 			}
 			if (state.receipts.isNotEmpty()) {
 				item { SectionTitle("Posledné bločky") }
-				items(state.receipts) { receipt -> ReceiptRow(receipt) }
+				items(state.receipts) { receipt ->
+					ReceiptRow(receipt = receipt, onClick = { onOpenReceipt(receipt.id) })
+				}
 			}
 		}
+	}
+}
+
+@Composable
+private fun ReceiptDetail(
+	receipt: Receipt,
+	onBack: () -> Unit,
+) {
+	Scaffold { innerPadding ->
+		LazyColumn(
+			modifier = Modifier
+				.fillMaxSize()
+				.padding(innerPadding),
+			contentPadding = PaddingValues(20.dp),
+			verticalArrangement = Arrangement.spacedBy(14.dp),
+		) {
+			item {
+				Button(onClick = onBack) {
+					Text("Späť")
+				}
+			}
+			item {
+				Text(receipt.merchant, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+				Text(
+					DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(receipt.issuedAt)),
+					style = MaterialTheme.typography.bodyMedium,
+				)
+				Spacer(modifier = Modifier.height(8.dp))
+				Text(money(receipt.totalCents), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+			}
+			item {
+				SectionTitle("Položky (" + receipt.items.size + ")")
+			}
+			items(receipt.items) { item ->
+				ReceiptItemRow(item)
+			}
+		}
+	}
+}
+
+@Composable
+private fun ReceiptItemRow(item: ReceiptItem) {
+	Column(modifier = Modifier.fillMaxWidth()) {
+		Row(
+			modifier = Modifier.fillMaxWidth(),
+			horizontalArrangement = Arrangement.SpaceBetween,
+			verticalAlignment = Alignment.Top,
+		) {
+			Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+				Text(item.canonicalName, fontWeight = FontWeight.SemiBold)
+				if (!item.originalName.equals(item.canonicalName, ignoreCase = true)) {
+					Text(item.originalName, style = MaterialTheme.typography.bodySmall)
+				}
+				Text(
+					buildString {
+						append(item.category)
+						item.subcategory?.let {
+							append(" · ")
+							append(it)
+						}
+						if (item.quantity != 1.0) {
+							append(" · ")
+							append(quantity(item.quantity))
+							append("×")
+						}
+					},
+					style = MaterialTheme.typography.bodySmall,
+				)
+			}
+			Text(money(item.totalCents), fontWeight = FontWeight.Bold)
+		}
+		Spacer(modifier = Modifier.height(10.dp))
+		HorizontalDivider()
 	}
 }
 
@@ -169,8 +257,15 @@ private fun ProductRow(product: ProductTotal) {
 }
 
 @Composable
-private fun ReceiptRow(receipt: ReceiptSummary) {
-	Card(modifier = Modifier.fillMaxWidth()) {
+private fun ReceiptRow(
+	receipt: ReceiptSummary,
+	onClick: () -> Unit,
+) {
+	Card(
+		modifier = Modifier
+			.fillMaxWidth()
+			.clickable(onClick = onClick),
+	) {
 		Row(
 			modifier = Modifier.padding(16.dp).fillMaxWidth(),
 			horizontalArrangement = Arrangement.SpaceBetween,
@@ -187,3 +282,9 @@ private fun ReceiptRow(receipt: ReceiptSummary) {
 
 private fun money(cents: Long): String = NumberFormat.getCurrencyInstance(Locale("sk", "SK"))
 	.format(cents / 100.0)
+
+private fun quantity(value: Double): String = if (value % 1.0 == 0.0) {
+	value.toLong().toString()
+} else {
+	NumberFormat.getNumberInstance(Locale("sk", "SK")).format(value)
+}
