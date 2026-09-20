@@ -31,8 +31,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.google.mlkit.vision.barcode.common.Barcode
-import com.google.android.gms.mlkit.codescanner.GmsBarcodeScannerOptions
-import com.google.android.gms.mlkit.codescanner.GmsBarcodeScanning
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import com.ziacik.blocky.model.CategoryTotal
 import com.ziacik.blocky.model.ReceiptSummary
 import com.ziacik.blocky.ui.MainUiState
