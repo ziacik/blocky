@@ -7,6 +7,7 @@ import android.database.sqlite.SQLiteOpenHelper
 import com.ziacik.blocky.model.CategoryTotal
 import com.ziacik.blocky.model.ProductTotal
 import com.ziacik.blocky.model.Receipt
+import com.ziacik.blocky.model.ReceiptItem
 import com.ziacik.blocky.model.ReceiptSummary
 
 class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", null, 1) {
@@ -77,6 +78,53 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 			writableDatabase.setTransactionSuccessful()
 		} finally {
 			writableDatabase.endTransaction()
+		}
+	}
+
+	fun receipt(id: String): Receipt? {
+		val db = readableDatabase
+		return db.rawQuery(
+			"SELECT receipt_id, merchant, issued_at, total_cents, raw_json FROM receipts WHERE receipt_id = ?",
+			arrayOf(id),
+		).use { cursor ->
+			if (!cursor.moveToFirst()) {
+				return@use null
+			}
+
+			val items = db.rawQuery(
+				"""
+				SELECT original_name, canonical_name, category, subcategory, quantity, total_cents, vat_rate
+				FROM items
+				WHERE receipt_id = ?
+				ORDER BY id
+				""".trimIndent(),
+				arrayOf(id),
+			).use { itemCursor ->
+				buildList {
+					while (itemCursor.moveToNext()) {
+						add(
+							ReceiptItem(
+								originalName = itemCursor.getString(0),
+								canonicalName = itemCursor.getString(1),
+								category = itemCursor.getString(2),
+								subcategory = if (itemCursor.isNull(3)) null else itemCursor.getString(3),
+								quantity = itemCursor.getDouble(4),
+								totalCents = itemCursor.getLong(5),
+								vatRate = if (itemCursor.isNull(6)) null else itemCursor.getDouble(6),
+							)
+						)
+					}
+				}
+			}
+
+			Receipt(
+				id = cursor.getString(0),
+				merchant = cursor.getString(1),
+				issuedAt = cursor.getLong(2),
+				totalCents = cursor.getLong(3),
+				items = items,
+				rawJson = cursor.getString(4),
+			)
 		}
 	}
 
