@@ -8,6 +8,7 @@ import com.ziacik.blocky.data.EkasaClient
 import com.ziacik.blocky.data.EkasaReceiptParser
 import com.ziacik.blocky.data.ReceiptRepository
 import com.ziacik.blocky.model.CategoryTotal
+import com.ziacik.blocky.model.ProductTotal
 import com.ziacik.blocky.model.ReceiptSummary
 import com.ziacik.blocky.normalization.HeuristicItemNormalizer
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +23,7 @@ data class MainUiState(
 	val totalCents: Long = 0,
 	val receipts: List<ReceiptSummary> = emptyList(),
 	val categories: List<CategoryTotal> = emptyList(),
+	val products: List<ProductTotal> = emptyList(),
 	val message: String? = null,
 )
 
@@ -52,6 +54,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 					totalCents = snapshot.totalCents,
 					receipts = snapshot.receipts,
 					categories = snapshot.categories,
+					products = snapshot.products,
 					message = "Bloček uložený.",
 				)
 			}.onFailure { error ->
@@ -74,6 +77,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 				totalCents = snapshot.totalCents,
 				receipts = snapshot.receipts,
 				categories = snapshot.categories,
+				products = snapshot.products,
 			)
 		}
 	}

@@ -30,3 +30,8 @@ data class CategoryTotal(
 	val category: String,
 	val totalCents: Long,
 )
+
+data class ProductTotal(
+	val product: String,
+	val totalCents: Long,
+)

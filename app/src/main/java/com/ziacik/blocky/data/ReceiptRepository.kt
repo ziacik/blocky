@@ -1,6 +1,7 @@
 package com.ziacik.blocky.data
 
 import com.ziacik.blocky.model.CategoryTotal
+import com.ziacik.blocky.model.ProductTotal
 import com.ziacik.blocky.model.ReceiptSummary
 
 class ReceiptRepository(
@@ -18,6 +19,7 @@ class ReceiptRepository(
 		totalCents = database.totalCents(),
 		receipts = database.receiptSummaries(),
 		categories = database.categoryTotals(),
+		products = database.productTotals(),
 	)
 }
 
@@ -25,4 +27,5 @@ data class RepositorySnapshot(
 	val totalCents: Long,
 	val receipts: List<ReceiptSummary>,
 	val categories: List<CategoryTotal>,
+	val products: List<ProductTotal>,
 )

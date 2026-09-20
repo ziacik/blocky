@@ -34,6 +34,7 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import com.ziacik.blocky.model.CategoryTotal
+import com.ziacik.blocky.model.ProductTotal
 import com.ziacik.blocky.model.ReceiptSummary
 import com.ziacik.blocky.ui.MainUiState
 import com.ziacik.blocky.ui.MainViewModel
@@ -126,6 +127,10 @@ private fun BlockyHome(
 				item { SectionTitle("Najväčšie kategórie") }
 				items(state.categories) { category -> CategoryRow(category) }
 			}
+			if (state.products.isNotEmpty()) {
+				item { SectionTitle("Najdrahšie produkty") }
+				items(state.products) { product -> ProductRow(product) }
+			}
 			if (state.receipts.isNotEmpty()) {
 				item { SectionTitle("Posledné bločky") }
 				items(state.receipts) { receipt -> ReceiptRow(receipt) }
@@ -148,6 +153,18 @@ private fun CategoryRow(category: CategoryTotal) {
 	) {
 		Text(category.category)
 		Text(money(category.totalCents), fontWeight = FontWeight.SemiBold)
+	}
+}
+
+@Composable
+private fun ProductRow(product: ProductTotal) {
+	Row(
+		modifier = Modifier.fillMaxWidth(),
+		horizontalArrangement = Arrangement.SpaceBetween,
+		verticalAlignment = Alignment.CenterVertically,
+	) {
+		Text(product.product)
+		Text(money(product.totalCents), fontWeight = FontWeight.SemiBold)
 	}
 }
 

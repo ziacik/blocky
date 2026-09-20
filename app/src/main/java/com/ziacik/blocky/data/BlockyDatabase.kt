@@ -5,6 +5,7 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import com.ziacik.blocky.model.CategoryTotal
+import com.ziacik.blocky.model.ProductTotal
 import com.ziacik.blocky.model.Receipt
 import com.ziacik.blocky.model.ReceiptSummary
 
@@ -103,6 +104,17 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 	).use { cursor ->
 		cursor.moveToFirst()
 		cursor.getLong(0)
+	}
+
+	fun productTotals(limit: Int = 6): List<ProductTotal> = readableDatabase.rawQuery(
+		"SELECT canonical_name, SUM(total_cents) total FROM items GROUP BY canonical_name ORDER BY total DESC LIMIT ?",
+		arrayOf(limit.toString()),
+	).use { cursor ->
+		buildList {
+			while (cursor.moveToNext()) {
+				add(ProductTotal(cursor.getString(0), cursor.getLong(1)))
+			}
+		}
 	}
 
 	fun categoryTotals(limit: Int = 6): List<CategoryTotal> = readableDatabase.rawQuery(
