@@ -1,0 +1,181 @@
+package com.ziacik.blocky.data.wolt
+
+import com.ziacik.blocky.model.Receipt
+import com.ziacik.blocky.model.ReceiptItem
+import com.ziacik.blocky.normalization.ItemNormalizer
+import org.json.JSONArray
+import org.json.JSONObject
+import java.security.MessageDigest
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import kotlin.math.roundToLong
+
+class WoltOrderParser(
+	private val normalizer: ItemNormalizer,
+	private val zoneId: ZoneId = ZoneId.of("Europe/Bratislava"),
+) {
+	fun parseOrders(json: String, sinceMillis: Long): List<Receipt> =
+		extractOrders(json)
+			.mapNotNull(::parseOrder)
+			.filter { it.issuedAt >= sinceMillis }
+
+	private fun extractOrders(json: String): List<JSONObject> {
+		val trimmed = json.trim()
+		if (trimmed.startsWith("[")) {
+			return objects(JSONArray(trimmed))
+		}
+
+		val root = JSONObject(trimmed)
+		root.optJSONArray("sections")?.let { sections ->
+			return buildList {
+				for (index in 0 until sections.length()) {
+					val section = sections.optJSONObject(index) ?: continue
+					addAll(objects(section.optJSONArray("items") ?: JSONArray()))
+				}
+			}
+		}
+
+		for (key in listOf("results", "orders", "items")) {
+			root.optJSONArray(key)?.let { return objects(it) }
+		}
+		return emptyList()
+	}
+
+	private fun objects(array: JSONArray): List<JSONObject> = buildList {
+		for (index in 0 until array.length()) {
+			array.optJSONObject(index)?.let(::add)
+		}
+	}
+
+	private fun parseOrder(order: JSONObject): Receipt? {
+		val issuedAt = parseTimestamp(order) ?: return null
+		val id = firstString(order, "id", "order_id")
+			?: order.optJSONObject("telemetry")?.let { firstString(it, "order_id", "id") }
+			?: stableId(order.toString())
+		val merchant = order.optJSONObject("venue")?.optString("name")?.takeIf(String::isNotBlank)
+			?: firstString(order, "venue_name", "title", "name")
+			?: "Wolt"
+		val totalCents = parseTotalCents(order)
+		val items = parseItems(order.optJSONArray("items") ?: JSONArray())
+
+		return Receipt(
+			id = "wolt:$id",
+			merchant = merchant,
+			issuedAt = issuedAt,
+			totalCents = totalCents,
+			items = items,
+			rawJson = order.toString(),
+		)
+	}
+
+	private fun parseItems(items: JSONArray): List<ReceiptItem> = buildList {
+		for (index in 0 until items.length()) {
+			val item = items.optJSONObject(index) ?: continue
+			val name = item.optString("name").takeIf(String::isNotBlank) ?: continue
+			val quantity = firstNumber(item, "count", "qty", "quantity")?.toDouble() ?: 1.0
+			val unitPriceCents = parseMoneyValue(item.opt("price") ?: item.opt("baseprice")) ?: 0L
+			val normalized = normalizer.normalize(name)
+			add(
+				ReceiptItem(
+					originalName = name,
+					canonicalName = normalized.canonicalName,
+					category = normalized.category,
+					subcategory = normalized.subcategory,
+					quantity = quantity,
+					totalCents = (unitPriceCents * quantity).roundToLong(),
+					vatRate = null,
+				)
+			)
+		}
+	}
+
+	private fun parseTotalCents(order: JSONObject): Long {
+		val telemetryAmount = order.optJSONObject("telemetry")?.opt("end_amount")
+		parseCentsNumber(telemetryAmount)?.let { return it }
+
+		for (key in listOf("total", "total_price", "price")) {
+			parseMoneyValue(order.opt(key))?.let { return it }
+		}
+		return 0L
+	}
+
+	private fun parseTimestamp(order: JSONObject): Long? {
+		val raw = listOf("timestamp", "created_at", "placed_time", "submitted_at", "delivery_time", "time")
+			.firstNotNullOfOrNull { key -> order.opt(key).takeUnless { it == null || it == JSONObject.NULL } }
+			?: return null
+
+		if (raw is Number) {
+			val value = raw.toLong()
+			return if (value < 10_000_000_000L) value * 1000 else value
+		}
+
+		val text = when (raw) {
+			is JSONObject -> firstString(raw, "iso", "$" + "date")
+				?: raw.optLong("epoch", Long.MIN_VALUE).takeIf { it != Long.MIN_VALUE }?.toString()
+			else -> raw.toString()
+		} ?: return null
+
+		text.toLongOrNull()?.let { value ->
+			return if (value < 10_000_000_000L) value * 1000 else value
+		}
+		runCatching { Instant.parse(text).toEpochMilli() }.getOrNull()?.let { return it }
+		runCatching { OffsetDateTime.parse(text).toInstant().toEpochMilli() }.getOrNull()?.let { return it }
+
+		for (formatter in TIMESTAMP_FORMATTERS) {
+			runCatching {
+				LocalDateTime.parse(text, formatter)
+					.atZone(zoneId)
+					.toInstant()
+					.toEpochMilli()
+			}.getOrNull()?.let { return it }
+		}
+		return null
+	}
+
+	private fun parseMoneyValue(value: Any?): Long? = when (value) {
+		null, JSONObject.NULL -> null
+		is JSONObject -> parseMoneyValue(value.opt("amount") ?: value.opt("value"))
+		is Byte, is Short, is Int, is Long -> (value as Number).toLong()
+		is Float, is Double -> ((value as Number).toDouble() * 100.0).roundToLong()
+		is String -> {
+			val clean = value
+				.replace("€", "")
+				.replace("$", "")
+				.replace("\u00a0", "")
+				.replace(" ", "")
+				.replace(",", ".")
+				.trim()
+			clean.toDoubleOrNull()?.let { (it * 100.0).roundToLong() }
+		}
+		else -> null
+	}
+
+	private fun parseCentsNumber(value: Any?): Long? = when (value) {
+		is Number -> value.toLong()
+		else -> null
+	}
+
+	private fun firstString(obj: JSONObject, vararg keys: String): String? =
+		keys.firstNotNullOfOrNull { key -> obj.optString(key).takeIf(String::isNotBlank) }
+
+	private fun firstNumber(obj: JSONObject, vararg keys: String): Number? =
+		keys.firstNotNullOfOrNull { key -> obj.opt(key) as? Number }
+
+	private fun stableId(value: String): String {
+		val digest = MessageDigest.getInstance("SHA-256").digest(value.toByteArray())
+		return digest.take(12).joinToString("") { byte -> "%02x".format(byte) }
+	}
+
+	private companion object {
+		val TIMESTAMP_FORMATTERS = listOf(
+			DateTimeFormatter.ofPattern("dd/MM/yyyy, HH:mm"),
+			DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"),
+			DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"),
+			DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"),
+			DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"),
+		)
+	}
+}
