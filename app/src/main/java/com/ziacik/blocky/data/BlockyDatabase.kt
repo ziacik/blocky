@@ -90,6 +90,20 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 		)
 	}
 
+	fun hasPricedReceipt(receiptId: String): Boolean = readableDatabase.rawQuery(
+		"""
+		SELECT EXISTS(
+			SELECT 1
+			FROM items
+			WHERE receipt_id = ? AND total_cents > 0
+		)
+		""".trimIndent(),
+		arrayOf(receiptId),
+	).use { cursor ->
+		cursor.moveToFirst()
+		cursor.getInt(0) == 1
+	}
+
 	fun receipt(receiptId: String): Receipt? {
 		val header = readableDatabase.rawQuery(
 			"SELECT receipt_id, merchant, issued_at, total_cents, raw_json FROM receipts WHERE receipt_id = ?",
