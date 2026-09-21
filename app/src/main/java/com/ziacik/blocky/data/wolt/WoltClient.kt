@@ -13,7 +13,17 @@ class WoltClient(
 ) {
 	private val webClientId = UUID.randomUUID().toString()
 
-	fun fetchOrders(limit: Int = 200): String {
+	fun fetchOrderHistory(limit: Int = 200): String =
+		authenticatedGet(ORDER_HISTORY_ENDPOINT + "?limit=" + limit)
+
+	fun fetchOrderDetail(purchaseId: String): String {
+		val encodedId = URLEncoder.encode(purchaseId, StandardCharsets.UTF_8.name())
+		return authenticatedGet(
+			ORDER_HISTORY_ENDPOINT + "purchase/" + encodedId + "?tips_use_percentage=true",
+		)
+	}
+
+	private fun authenticatedGet(url: String): String {
 		var cookies = sessionStore.cookies() ?: throw WoltAuthException("Wolt nie je pripojený.")
 		var accessToken = WoltCredentialParser.accessToken(cookies)
 
@@ -23,12 +33,22 @@ class WoltClient(
 				?: throw WoltAuthException("Wolt access token sa nepodarilo načítať.")
 		}
 
-		var response = requestOrders(cookies, accessToken, limit)
+		var response = request(
+			url = url,
+			method = "GET",
+			cookies = cookies,
+			accessToken = accessToken,
+		)
 		if (response.status == HttpURLConnection.HTTP_UNAUTHORIZED) {
 			cookies = refreshSession(cookies)
 			accessToken = WoltCredentialParser.accessToken(cookies)
 				?: throw WoltAuthException("Wolt access token sa nepodarilo obnoviť.")
-			response = requestOrders(cookies, accessToken, limit)
+			response = request(
+				url = url,
+				method = "GET",
+				cookies = cookies,
+				accessToken = accessToken,
+			)
 		}
 
 		persistRotatedCookies(cookies, response.setCookies)
@@ -46,17 +66,6 @@ class WoltClient(
 		}
 		return response.body
 	}
-
-	private fun requestOrders(
-		cookies: String,
-		accessToken: String,
-		limit: Int,
-	): WoltHttpResponse = request(
-		url = ORDERS_ENDPOINT + "?limit=" + limit,
-		method = "GET",
-		cookies = cookies,
-		accessToken = accessToken,
-	)
 
 	private fun refreshSession(cookies: String): String {
 		val refreshToken = WoltCredentialParser.refreshToken(cookies)
@@ -181,8 +190,10 @@ class WoltClient(
 	)
 
 	private companion object {
-		const val ORDERS_ENDPOINT = "https://consumer-api.wolt.com/order-xp/web/v1/pages/orders"
-		const val ACCESS_TOKEN_ENDPOINT = "https://authentication.wolt.com/v1/wauth2/access_token"
+		const val ORDER_HISTORY_ENDPOINT =
+			"https://consumer-api.wolt.com/order-tracking-api/v1/order_history/"
+		const val ACCESS_TOKEN_ENDPOINT =
+			"https://authentication.wolt.com/v1/wauth2/access_token"
 	}
 }
 
