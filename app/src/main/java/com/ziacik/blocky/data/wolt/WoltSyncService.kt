@@ -28,21 +28,32 @@ class WoltSyncService(context: Context) {
 			client.fetchOrderHistory(limit = 200),
 			since,
 		)
-		val receipts = purchaseIds
-			.mapNotNull { purchaseId ->
-				parser.parseOrderDetail(client.fetchOrderDetail(purchaseId))
-			}
-			.filter { receipt -> receipt.issuedAt >= since }
 
+		var imported = 0
 		val database = BlockyDatabase(appContext)
 		try {
-			database.deleteWoltReceiptsSince(since)
-			receipts.forEach(database::save)
+			for (purchaseId in purchaseIds) {
+				val receiptId = "wolt:" + purchaseId
+				if (!WoltSyncPlanner.shouldFetchDetail(database.hasPricedReceipt(receiptId))) {
+					continue
+				}
+
+				val receipt = parser.parseOrderDetail(
+					client.fetchOrderDetail(purchaseId),
+				) ?: continue
+
+				if (receipt.issuedAt < since) {
+					continue
+				}
+
+				database.save(receipt)
+				imported++
+			}
 		} finally {
 			database.close()
 		}
 
 		sessionStore.markSuccessfulSync(now)
-		return receipts.size
+		return imported
 	}
 }
