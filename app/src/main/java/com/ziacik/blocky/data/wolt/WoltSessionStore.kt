@@ -25,16 +25,17 @@ class WoltSessionStore(context: Context) {
 		preferences.edit()
 			.remove(KEY_COOKIES)
 			.remove(KEY_LAST_SYNC)
+			.remove(KEY_LAST_SYNC_V2)
 			.apply()
 	}
 
 	fun isConnected(): Boolean = cookies()?.contains("__wtoken=") == true
 
 	fun lastSuccessfulSyncMillis(): Long? =
-		preferences.takeIf { it.contains(KEY_LAST_SYNC) }?.getLong(KEY_LAST_SYNC, 0L)
+		preferences.takeIf { it.contains(KEY_LAST_SYNC_V2) }?.getLong(KEY_LAST_SYNC_V2, 0L)
 
 	fun markSuccessfulSync(timestampMillis: Long) {
-		preferences.edit().putLong(KEY_LAST_SYNC, timestampMillis).apply()
+		preferences.edit().putLong(KEY_LAST_SYNC_V2, timestampMillis).apply()
 	}
 
 	private fun encrypt(value: String): String {
@@ -79,6 +80,7 @@ class WoltSessionStore(context: Context) {
 		const val PREFERENCES = "wolt_session"
 		const val KEY_COOKIES = "cookies"
 		const val KEY_LAST_SYNC = "last_sync"
+		const val KEY_LAST_SYNC_V2 = "last_sync_v2"
 		const val KEY_ALIAS = "blocky_wolt_session"
 		const val TRANSFORMATION = "AES/GCM/NoPadding"
 	}
