@@ -13,9 +13,10 @@ class WoltClient(
 			requestMethod = "GET"
 			connectTimeout = 15_000
 			readTimeout = 20_000
-			setRequestProperty("Accept", "application/json")
+			WoltRequestHeaders.fromCookies(cookies).forEach { (name, value) ->
+				setRequestProperty(name, value)
+			}
 			setRequestProperty("Cookie", cookies)
-			setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) Blocky/0.1")
 		}
 
 		try {
@@ -30,9 +31,15 @@ class WoltClient(
 			val stream = if (status in 200..299) connection.inputStream else connection.errorStream
 			val body = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
 
-			if (status == HttpURLConnection.HTTP_UNAUTHORIZED || status == HttpURLConnection.HTTP_FORBIDDEN) {
+			if (status == HttpURLConnection.HTTP_UNAUTHORIZED) {
 				sessionStore.clearCookies()
 				throw WoltAuthException("Wolt prihlásenie vypršalo. Pripoj Wolt znova.")
+			}
+			if (status == HttpURLConnection.HTTP_FORBIDDEN) {
+				throw IOException(
+					"Wolt odmietol synchronizáciu (HTTP 403). " +
+						"Session existuje, ale request neprešiel autentizáciou.",
+				)
 			}
 			if (status !in 200..299) {
 				val suffix = body.takeIf(String::isNotBlank)?.let { ": $it" }.orEmpty()
