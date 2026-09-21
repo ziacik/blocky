@@ -2,6 +2,7 @@ package com.ziacik.blocky
 
 import android.os.Bundle
 import android.webkit.CookieManager
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
@@ -13,6 +14,7 @@ import com.ziacik.blocky.data.wolt.WoltCookieJar
 import com.ziacik.blocky.data.wolt.WoltSessionStore
 import com.ziacik.blocky.data.wolt.WoltSyncScheduler
 import com.ziacik.blocky.data.wolt.WoltSyncService
+import com.ziacik.blocky.data.wolt.WoltWebNavigation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -26,7 +28,20 @@ class WoltLoginActivity : ComponentActivity() {
 		webView = WebView(this).apply {
 			settings.javaScriptEnabled = true
 			settings.domStorageEnabled = true
-			webViewClient = WebViewClient()
+			webViewClient = object : WebViewClient() {
+				override fun shouldOverrideUrlLoading(
+					view: WebView,
+					request: WebResourceRequest,
+				): Boolean {
+					val url = request.url.toString()
+					if (!WoltWebNavigation.shouldKeepInsideWebView(url)) {
+						return false
+					}
+
+					WoltWebNavigation.browserFallbackUrl(url)?.let(view::loadUrl)
+					return true
+				}
+			}
 		}
 		val cookieManager = CookieManager.getInstance().apply {
 			setAcceptCookie(true)
