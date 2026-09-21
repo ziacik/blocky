@@ -76,11 +76,22 @@ elif [[ ${#DEVICES[@]} -eq 0 ]]; then
 elif [[ ${#DEVICES[@]} -eq 1 ]]; then
 	TARGET="${DEVICES[0]}"
 else
-	echo "Multiple Android devices/emulators connected. Select one with --target:" >&2
-	printf '  %s\n' "${DEVICES[@]}" >&2
-	echo >&2
-	echo "Example: ./scripts/deploy.sh --target ${DEVICES[0]}" >&2
-	exit 1
+	echo "Multiple Android devices/emulators connected:"
+	echo
+	for i in "${!DEVICES[@]}"; do
+		printf '  %d) %s\n' "$((i + 1))" "${DEVICES[$i]}"
+	done
+	echo
+
+	while true; do
+		read -r -p "Select target [1-${#DEVICES[@]}]: " SELECTION
+		if [[ "$SELECTION" =~ ^[0-9]+$ ]] &&
+			(( SELECTION >= 1 && SELECTION <= ${#DEVICES[@]} )); then
+			TARGET="${DEVICES[$((SELECTION - 1))]}"
+			break
+		fi
+		echo "Invalid selection."
+	done
 fi
 
 ./gradlew assembleDebug
