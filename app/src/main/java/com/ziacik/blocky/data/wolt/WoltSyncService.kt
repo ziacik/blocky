@@ -25,8 +25,11 @@ class WoltSyncService(context: Context) {
 		)
 		val receipts = parser.parseOrders(client.fetchOrders(limit = 200), since)
 
-		BlockyDatabase(appContext).use { database ->
+		val database = BlockyDatabase(appContext)
+		try {
 			receipts.forEach(database::save)
+		} finally {
+			database.close()
 		}
 		sessionStore.markSuccessfulSync(now)
 		return receipts.size
