@@ -5,8 +5,10 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import com.ziacik.blocky.model.CategoryTotal
+import com.ziacik.blocky.model.ItemListEntry
 import com.ziacik.blocky.model.ProductTotal
 import com.ziacik.blocky.model.Receipt
+import com.ziacik.blocky.model.ReceiptItem
 import com.ziacik.blocky.model.ReceiptSummary
 
 class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", null, 1) {
@@ -77,6 +79,89 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 			writableDatabase.setTransactionSuccessful()
 		} finally {
 			writableDatabase.endTransaction()
+		}
+	}
+
+	fun deleteWoltReceiptsSince(sinceMillis: Long) {
+		writableDatabase.delete(
+			"receipts",
+			"receipt_id LIKE ? AND issued_at >= ?",
+			arrayOf("wolt:%", sinceMillis.toString()),
+		)
+	}
+
+	fun receipt(receiptId: String): Receipt? {
+		val header = readableDatabase.rawQuery(
+			"SELECT receipt_id, merchant, issued_at, total_cents, raw_json FROM receipts WHERE receipt_id = ?",
+			arrayOf(receiptId),
+		).use { cursor ->
+			if (!cursor.moveToFirst()) return null
+			Receipt(
+				id = cursor.getString(0),
+				merchant = cursor.getString(1),
+				issuedAt = cursor.getLong(2),
+				totalCents = cursor.getLong(3),
+				rawJson = cursor.getString(4),
+				items = emptyList(),
+			)
+		}
+
+		val items = readableDatabase.rawQuery(
+			"""
+			SELECT original_name, canonical_name, category, subcategory, quantity, total_cents, vat_rate
+			FROM items
+			WHERE receipt_id = ?
+			ORDER BY id
+			""".trimIndent(),
+			arrayOf(receiptId),
+		).use { cursor ->
+			buildList {
+				while (cursor.moveToNext()) {
+					add(
+						ReceiptItem(
+							originalName = cursor.getString(0),
+							canonicalName = cursor.getString(1),
+							category = cursor.getString(2),
+							subcategory = cursor.getString(3),
+							quantity = cursor.getDouble(4),
+							totalCents = cursor.getLong(5),
+							vatRate = if (cursor.isNull(6)) null else cursor.getDouble(6),
+						)
+					)
+				}
+			}
+		}
+
+		return header.copy(items = items)
+	}
+
+	fun allItems(limit: Int = 500): List<ItemListEntry> = readableDatabase.rawQuery(
+		"""
+		SELECT i.receipt_id, r.merchant, r.issued_at, i.original_name, i.canonical_name,
+		       i.category, i.subcategory, i.quantity, i.total_cents
+		FROM items i
+		JOIN receipts r ON r.receipt_id = i.receipt_id
+		ORDER BY r.issued_at DESC, i.id DESC
+		LIMIT ?
+		""".trimIndent(),
+		arrayOf(limit.toString()),
+	).use { cursor ->
+		buildList {
+			while (cursor.moveToNext()) {
+				add(
+					ItemListEntry(
+						receiptId = cursor.getString(0),
+						merchant = cursor.getString(1),
+						issuedAt = cursor.getLong(2),
+						originalName = cursor.getString(3),
+						canonicalName = cursor.getString(4),
+						category = cursor.getString(5),
+						subcategory = cursor.getString(6),
+						quantity = cursor.getDouble(7),
+						totalCents = cursor.getLong(8),
+					)
+				)
+			}
 		}
 	}
 
