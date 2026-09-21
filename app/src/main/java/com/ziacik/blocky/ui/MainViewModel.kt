@@ -9,7 +9,6 @@ import com.ziacik.blocky.data.EkasaReceiptParser
 import com.ziacik.blocky.data.ReceiptRepository
 import com.ziacik.blocky.model.CategoryTotal
 import com.ziacik.blocky.model.ProductTotal
-import com.ziacik.blocky.model.Receipt
 import com.ziacik.blocky.model.ReceiptSummary
 import com.ziacik.blocky.normalization.HeuristicItemNormalizer
 import kotlinx.coroutines.Dispatchers
@@ -25,7 +24,6 @@ data class MainUiState(
 	val receipts: List<ReceiptSummary> = emptyList(),
 	val categories: List<CategoryTotal> = emptyList(),
 	val products: List<ProductTotal> = emptyList(),
-	val selectedReceipt: Receipt? = null,
 	val message: String? = null,
 )
 
@@ -66,20 +64,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 				)
 			}
 		}
-	}
-
-	fun openReceipt(id: String) {
-		viewModelScope.launch {
-			val receipt = withContext(Dispatchers.IO) { repository.receipt(id) }
-			_state.value = _state.value.copy(
-				selectedReceipt = receipt,
-				message = if (receipt == null) "Bloček sa nepodarilo otvoriť." else null,
-			)
-		}
-	}
-
-	fun closeReceipt() {
-		_state.value = _state.value.copy(selectedReceipt = null)
 	}
 
 	fun showMessage(message: String) {

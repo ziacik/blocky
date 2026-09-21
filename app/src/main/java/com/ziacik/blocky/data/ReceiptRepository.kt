@@ -2,7 +2,6 @@ package com.ziacik.blocky.data
 
 import com.ziacik.blocky.model.CategoryTotal
 import com.ziacik.blocky.model.ProductTotal
-import com.ziacik.blocky.model.Receipt
 import com.ziacik.blocky.model.ReceiptSummary
 
 class ReceiptRepository(
@@ -15,8 +14,6 @@ class ReceiptRepository(
 		val receipt = parser.parse(json)
 		database.save(receipt)
 	}
-
-	fun receipt(id: String): Receipt? = database.receipt(id)
 
 	fun snapshot(): RepositorySnapshot = RepositorySnapshot(
 		totalCents = database.totalCents(),
