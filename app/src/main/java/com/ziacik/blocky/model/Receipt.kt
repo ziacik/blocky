@@ -26,6 +26,18 @@ data class ReceiptSummary(
 	val totalCents: Long,
 )
 
+data class ItemListEntry(
+	val receiptId: String,
+	val merchant: String,
+	val issuedAt: Long,
+	val originalName: String,
+	val canonicalName: String,
+	val category: String,
+	val subcategory: String?,
+	val quantity: Double,
+	val totalCents: Long,
+)
+
 data class CategoryTotal(
 	val category: String,
 	val totalCents: Long,
