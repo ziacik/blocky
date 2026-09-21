@@ -1,17 +1,22 @@
 package com.ziacik.blocky.data.wolt
 
+import android.os.SystemClock
 import org.json.JSONObject
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 class WoltClient(
 	private val sessionStore: WoltSessionStore,
 ) {
 	private val webClientId = UUID.randomUUID().toString()
+	private var lastRequestAtMillis = 0L
+	private var rateLimitCount = 0
 
 	fun fetchOrderHistory(limit: Int = 200): String =
 		authenticatedGet(ORDER_HISTORY_ENDPOINT + "?limit=" + limit)
@@ -33,9 +38,8 @@ class WoltClient(
 				?: throw WoltAuthException("Wolt access token sa nepodarilo načítať.")
 		}
 
-		var response = request(
+		var response = requestWithBackoff(
 			url = url,
-			method = "GET",
 			cookies = cookies,
 			accessToken = accessToken,
 		)
@@ -43,9 +47,8 @@ class WoltClient(
 			cookies = refreshSession(cookies)
 			accessToken = WoltCredentialParser.accessToken(cookies)
 				?: throw WoltAuthException("Wolt access token sa nepodarilo obnoviť.")
-			response = request(
+			response = requestWithBackoff(
 				url = url,
-				method = "GET",
 				cookies = cookies,
 				accessToken = accessToken,
 			)
@@ -60,11 +63,67 @@ class WoltClient(
 		if (response.status == HttpURLConnection.HTTP_FORBIDDEN) {
 			throw IOException("Wolt odmietol synchronizáciu (HTTP 403).")
 		}
+		if (response.status == HTTP_TOO_MANY_REQUESTS) {
+			throw IOException(
+				"Wolt stále obmedzuje počet požiadaviek (HTTP 429). Sync sa skúsi neskôr znova.",
+			)
+		}
 		if (response.status !in 200..299) {
 			val suffix = response.body.takeIf(String::isNotBlank)?.let { ": " + it }.orEmpty()
 			throw IOException("Wolt API vrátilo HTTP " + response.status + suffix)
 		}
 		return response.body
+	}
+
+	private fun requestWithBackoff(
+		url: String,
+		cookies: String,
+		accessToken: String,
+	): WoltHttpResponse {
+		var lastResponse: WoltHttpResponse? = null
+
+		for (attempt in 1..MAX_ATTEMPTS) {
+			waitForPacing()
+			val response = request(
+				url = url,
+				method = "GET",
+				cookies = cookies,
+				accessToken = accessToken,
+			)
+			lastResponse = response
+
+			if (response.status != HTTP_TOO_MANY_REQUESTS && response.status != HTTP_SERVICE_UNAVAILABLE) {
+				return response
+			}
+
+			if (response.status == HTTP_TOO_MANY_REQUESTS) {
+				rateLimitCount++
+			}
+
+			if (attempt < MAX_ATTEMPTS) {
+				Thread.sleep(
+					WoltRateLimitPolicy.retryDelayMillis(
+						attempt = attempt,
+						retryAfterMillis = response.retryAfterMillis,
+					)
+				)
+			}
+		}
+
+		return requireNotNull(lastResponse)
+	}
+
+	private fun waitForPacing() {
+		val delay = WoltRateLimitPolicy.pacingDelayMillis(rateLimitCount)
+		val now = SystemClock.elapsedRealtime()
+		if (lastRequestAtMillis > 0L) {
+			val elapsed = now - lastRequestAtMillis
+			val wait = delay - elapsed
+			if (wait > 0L) {
+				Thread.sleep(wait)
+			}
+		}
+		lastRequestAtMillis = SystemClock.elapsedRealtime()
 	}
 
 	private fun refreshSession(cookies: String): String {
@@ -164,15 +223,34 @@ class WoltClient(
 			val setCookies = connection.headerFields.entries
 				.filter { (name, _) -> name?.equals("Set-Cookie", ignoreCase = true) == true }
 				.flatMap { (_, values) -> values.orEmpty() }
+			val retryAfterMillis = parseRetryAfterMillis(
+				connection.getHeaderField("Retry-After"),
+			)
 
 			return WoltHttpResponse(
 				status = status,
 				body = responseBody,
 				setCookies = setCookies,
+				retryAfterMillis = retryAfterMillis,
 			)
 		} finally {
 			connection.disconnect()
 		}
+	}
+
+	private fun parseRetryAfterMillis(value: String?): Long? {
+		val header = value?.trim().takeUnless { it.isNullOrEmpty() } ?: return null
+		header.toLongOrNull()?.let { seconds ->
+			return (seconds * 1_000L).coerceAtLeast(0L)
+		}
+
+		return runCatching {
+			val retryAt = ZonedDateTime.parse(
+				header,
+				DateTimeFormatter.RFC_1123_DATE_TIME,
+			).toInstant().toEpochMilli()
+			(retryAt - System.currentTimeMillis()).coerceAtLeast(0L)
+		}.getOrNull()
 	}
 
 	private fun persistRotatedCookies(cookies: String, setCookies: List<String>) {
@@ -187,6 +265,7 @@ class WoltClient(
 		val status: Int,
 		val body: String,
 		val setCookies: List<String>,
+		val retryAfterMillis: Long?,
 	)
 
 	private companion object {
@@ -194,6 +273,9 @@ class WoltClient(
 			"https://consumer-api.wolt.com/order-tracking-api/v1/order_history/"
 		const val ACCESS_TOKEN_ENDPOINT =
 			"https://authentication.wolt.com/v1/wauth2/access_token"
+		const val HTTP_TOO_MANY_REQUESTS = 429
+		const val HTTP_SERVICE_UNAVAILABLE = 503
+		const val MAX_ATTEMPTS = 6
 	}
 }
 
