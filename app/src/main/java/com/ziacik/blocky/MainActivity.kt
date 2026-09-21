@@ -1,5 +1,6 @@
 package com.ziacik.blocky
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -33,6 +34,8 @@ import androidx.compose.ui.unit.dp
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
+import com.ziacik.blocky.data.wolt.WoltSessionStore
+import com.ziacik.blocky.data.wolt.WoltSyncScheduler
 import com.ziacik.blocky.model.CategoryTotal
 import com.ziacik.blocky.model.ProductTotal
 import com.ziacik.blocky.model.ReceiptSummary
@@ -49,6 +52,11 @@ class MainActivity : ComponentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
 		enableEdgeToEdge()
+
+		if (WoltSessionStore(this).isConnected()) {
+			WoltSyncScheduler.schedulePeriodic(this)
+			viewModel.syncWolt()
+		}
 
 		val scanner = GmsBarcodeScanning.getClient(
 			this,
@@ -74,10 +82,22 @@ class MainActivity : ComponentActivity() {
 									viewModel.showMessage(error.message ?: "Skenovanie zlyhalo.")
 								}
 						},
+						onWolt = {
+							if (state.woltConnected) {
+								viewModel.syncWolt()
+							} else {
+								startActivity(Intent(this, WoltLoginActivity::class.java))
+							}
+						},
 					)
 				}
 			}
 		}
+	}
+
+	override fun onResume() {
+		super.onResume()
+		viewModel.refresh()
 	}
 }
 
@@ -85,6 +105,7 @@ class MainActivity : ComponentActivity() {
 private fun BlockyHome(
 	state: MainUiState,
 	onScan: () -> Unit,
+	onWolt: () -> Unit,
 ) {
 	Scaffold { innerPadding ->
 		LazyColumn(
@@ -116,7 +137,16 @@ private fun BlockyHome(
 						CircularProgressIndicator(modifier = Modifier.height(20.dp))
 						Spacer(modifier = Modifier.padding(4.dp))
 					}
-					Text(if (state.loading) "Načítavam bloček…" else "Naskenovať QR bločku")
+					Text(if (state.loading) "Načítavam…" else "Naskenovať QR bločku")
+				}
+			}
+			item {
+				Button(
+					onClick = onWolt,
+					enabled = !state.loading,
+					modifier = Modifier.fillMaxWidth(),
+				) {
+					Text(if (state.woltConnected) "Synchronizovať Wolt" else "Prepojiť Wolt")
 				}
 				state.message?.let {
 					Spacer(modifier = Modifier.height(8.dp))
