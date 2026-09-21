@@ -23,14 +23,25 @@ class WoltSyncService(context: Context) {
 			nowMillis = now,
 			zoneId = ZoneId.of("Europe/Bratislava"),
 		)
-		val receipts = parser.parseOrders(client.fetchOrders(limit = 200), since)
+
+		val purchaseIds = parser.parseHistoryPurchaseIds(
+			client.fetchOrderHistory(limit = 200),
+			since,
+		)
+		val receipts = purchaseIds
+			.mapNotNull { purchaseId ->
+				parser.parseOrderDetail(client.fetchOrderDetail(purchaseId))
+			}
+			.filter { receipt -> receipt.issuedAt >= since }
 
 		val database = BlockyDatabase(appContext)
 		try {
+			database.deleteWoltReceiptsSince(since)
 			receipts.forEach(database::save)
 		} finally {
 			database.close()
 		}
+
 		sessionStore.markSuccessfulSync(now)
 		return receipts.size
 	}
