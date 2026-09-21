@@ -12,6 +12,10 @@
 			android:value="barcode_ui" />
 
 		<activity
+			android:name=".WoltLoginActivity"
+			android:exported="false" />
+
+		<activity
 			android:name=".MainActivity"
 			android:exported="true">
 			<intent-filter>
