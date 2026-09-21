@@ -17,9 +17,45 @@ class WoltOrderParser(
 	private val normalizer: ItemNormalizer,
 	private val zoneId: ZoneId = ZoneId.of("Europe/Bratislava"),
 ) {
+	fun parseHistoryPurchaseIds(json: String, sinceMillis: Long): List<String> {
+		val root = JSONObject(json)
+		val orders = root.optJSONArray("orders") ?: JSONArray()
+
+		return buildList {
+			for (index in 0 until orders.length()) {
+				val order = orders.optJSONObject(index) ?: continue
+				val purchaseId = firstString(order, "purchase_id", "order_id", "id") ?: continue
+				val timestamp = parseTimestamp(order)
+				if (timestamp == null || timestamp >= sinceMillis) {
+					add(purchaseId)
+				}
+			}
+		}
+	}
+
+	fun parseOrderDetail(json: String): Receipt? {
+		val order = JSONObject(json)
+		val issuedAt = parseTimestamp(order) ?: return null
+		val id = firstString(order, "purchase_id", "order_id", "id") ?: return null
+		val merchant = firstString(order, "venue_name")
+			?: order.optJSONObject("venue")?.optString("name")?.takeIf(String::isNotBlank)
+			?: "Wolt"
+		val totalCents = parseOrderDetailTotal(order)
+		val items = parseItems(order.optJSONArray("items") ?: JSONArray())
+
+		return Receipt(
+			id = "wolt:$id",
+			merchant = merchant,
+			issuedAt = issuedAt,
+			totalCents = totalCents,
+			items = items,
+			rawJson = order.toString(),
+		)
+	}
+
 	fun parseOrders(json: String, sinceMillis: Long): List<Receipt> =
 		extractOrders(json)
-			.mapNotNull(::parseOrder)
+			.mapNotNull(::parseLegacyOrder)
 			.filter { it.issuedAt >= sinceMillis }
 
 	private fun extractOrders(json: String): List<JSONObject> {
@@ -50,15 +86,15 @@ class WoltOrderParser(
 		}
 	}
 
-	private fun parseOrder(order: JSONObject): Receipt? {
+	private fun parseLegacyOrder(order: JSONObject): Receipt? {
 		val issuedAt = parseTimestamp(order) ?: return null
-		val id = firstString(order, "id", "order_id")
+		val id = firstString(order, "id", "order_id", "purchase_id")
 			?: order.optJSONObject("telemetry")?.let { firstString(it, "order_id", "id") }
 			?: stableId(order.toString())
 		val merchant = order.optJSONObject("venue")?.optString("name")?.takeIf(String::isNotBlank)
 			?: firstString(order, "venue_name", "title", "name")
 			?: "Wolt"
-		val totalCents = parseTotalCents(order)
+		val totalCents = parseLegacyTotalCents(order)
 		val items = parseItems(order.optJSONArray("items") ?: JSONArray())
 
 		return Receipt(
@@ -76,7 +112,12 @@ class WoltOrderParser(
 			val item = items.optJSONObject(index) ?: continue
 			val name = item.optString("name").takeIf(String::isNotBlank) ?: continue
 			val quantity = firstNumber(item, "count", "qty", "quantity")?.toDouble() ?: 1.0
-			val unitPriceCents = parseMoneyValue(item.opt("price") ?: item.opt("baseprice")) ?: 0L
+			val lineTotalCents = parseMoneyValue(item.opt("end_amount"))
+				?: parseMoneyValue(item.opt("line_total"))
+				?: parseMoneyValue(item.opt("total_price"))
+				?: parseMoneyValue(item.opt("price") ?: item.opt("baseprice"))
+					?.let { unitPrice -> (unitPrice * quantity).roundToLong() }
+				?: 0L
 			val normalized = normalizer.normalize(name)
 			add(
 				ReceiptItem(
@@ -85,14 +126,19 @@ class WoltOrderParser(
 					category = normalized.category,
 					subcategory = normalized.subcategory,
 					quantity = quantity,
-					totalCents = (unitPriceCents * quantity).roundToLong(),
+					totalCents = lineTotalCents,
 					vatRate = null,
 				)
 			)
 		}
 	}
 
-	private fun parseTotalCents(order: JSONObject): Long {
+	private fun parseOrderDetailTotal(order: JSONObject): Long =
+		parseMoneyValue(order.opt("total_price"))
+			?: parseMoneyValue(order.opt("total"))
+			?: parseLegacyTotalCents(order)
+
+	private fun parseLegacyTotalCents(order: JSONObject): Long {
 		val telemetryAmount = order.optJSONObject("telemetry")?.opt("end_amount")
 		parseCentsNumber(telemetryAmount)?.let { return it }
 
@@ -103,7 +149,17 @@ class WoltOrderParser(
 	}
 
 	private fun parseTimestamp(order: JSONObject): Long? {
-		val raw = listOf("timestamp", "created_at", "placed_time", "submitted_at", "delivery_time", "time")
+		val raw = listOf(
+			"creation_time",
+			"received_at",
+			"timestamp",
+			"created_at",
+			"placed_time",
+			"submitted_at",
+			"delivery_time",
+			"payment_time_ts",
+			"time",
+		)
 			.firstNotNullOfOrNull { key -> order.opt(key).takeUnless { it == null || it == JSONObject.NULL } }
 			?: return null
 
@@ -137,7 +193,11 @@ class WoltOrderParser(
 
 	private fun parseMoneyValue(value: Any?): Long? = when (value) {
 		null, JSONObject.NULL -> null
-		is JSONObject -> parseMoneyValue(value.opt("amount") ?: value.opt("value"))
+		is JSONObject -> parseMoneyValue(
+			value.opt("amount")
+				.takeUnless { it == null || it == JSONObject.NULL }
+				?: value.opt("value"),
+		)
 		is Byte, is Short, is Int, is Long -> (value as Number).toLong()
 		is Float, is Double -> ((value as Number).toDouble() * 100.0).roundToLong()
 		is String -> {
