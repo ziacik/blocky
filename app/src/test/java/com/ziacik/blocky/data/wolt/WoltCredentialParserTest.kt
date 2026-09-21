@@ -17,4 +17,11 @@ class WoltCredentialParserTest {
 
 		assertEquals("abc.def.ghi", WoltCredentialParser.accessToken(cookies))
 	}
+
+	@Test
+	fun extractsRefreshTokenFromUrlEncodedJsonCookie() {
+		val cookies = "__wrtoken=%7B%22refreshToken%22%3A%22refresh-123%22%7D"
+
+		assertEquals("refresh-123", WoltCredentialParser.refreshToken(cookies))
+	}
 }
