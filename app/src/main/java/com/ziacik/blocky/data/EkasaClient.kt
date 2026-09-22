@@ -5,8 +5,8 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
-class EkasaClient {
-	fun findReceipt(qrValue: String): String {
+class EkasaClient : ReceiptLookupClient {
+	override fun findReceipt(qrValue: String): String {
 		val request = EkasaLookupRequest.fromQr(qrValue)
 		val body = when (request) {
 			is EkasaLookupRequest.Online -> JSONObject()

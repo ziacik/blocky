@@ -3,6 +3,9 @@ package com.ziacik.blocky.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.ziacik.blocky.BuildConfig
+import com.ziacik.blocky.categorization.CategorizationPipeline
+import com.ziacik.blocky.categorization.ReceiptIngestor
 import com.ziacik.blocky.data.BlockyDatabase
 import com.ziacik.blocky.data.EkasaClient
 import com.ziacik.blocky.data.EkasaReceiptParser
@@ -15,6 +18,7 @@ import com.ziacik.blocky.model.ItemListEntry
 import com.ziacik.blocky.model.ProductTotal
 import com.ziacik.blocky.model.Receipt
 import com.ziacik.blocky.model.ReceiptSummary
+import com.ziacik.blocky.model.SpendingType
 import com.ziacik.blocky.normalization.HeuristicItemNormalizer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,18 +47,24 @@ data class MainUiState(
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
+	private val database = BlockyDatabase(application)
+	private val categorizer = CategorizationPipeline.create(BuildConfig.CATEGORIZATION_ENDPOINT)
 	private val repository = ReceiptRepository(
 		client = EkasaClient(),
 		parser = EkasaReceiptParser(HeuristicItemNormalizer()),
-		database = BlockyDatabase(application),
+		database = database,
+		ingestor = ReceiptIngestor(categorizer, database),
 	)
 	private val woltSessionStore = WoltSessionStore(application)
-	private val woltSyncService = WoltSyncService(application)
+	private val woltSyncService = WoltSyncService(application, categorizer)
 	private val _state = MutableStateFlow(MainUiState())
 	val state: StateFlow<MainUiState> = _state.asStateFlow()
 
 	init {
 		refresh()
+		if (BuildConfig.CATEGORIZATION_ENDPOINT.isNotBlank()) {
+			categorizePending()
+		}
 	}
 
 	fun importReceipt(qrValue: String) {
@@ -173,6 +183,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 		}
 	}
 
+	private fun categorizePending() {
+		viewModelScope.launch {
+			val snapshot = withContext(Dispatchers.IO) {
+				repository.categorizePending()
+				repository.snapshot()
+			}
+			applySnapshot(snapshot)
+		}
+	}
+
 	fun clearWoltDiagnostics() {
 		_state.update { it.copy(woltDiagnostics = emptyList()) }
 	}
@@ -187,6 +207,38 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 				selectedReceipt = receipt,
 				message = if (receipt == null) "Bloček sa nenašiel." else null,
 			)
+		}
+	}
+
+	fun correctItemClassification(
+		receiptId: String,
+		itemIndex: Int,
+		category: String,
+		subcategory: String?,
+		spendingType: SpendingType,
+	) {
+		viewModelScope.launch {
+			val result = runCatching {
+				withContext(Dispatchers.IO) {
+					val receipt = repository.correctItemClassification(
+						receiptId = receiptId,
+						itemIndex = itemIndex,
+						category = category,
+						subcategory = subcategory,
+						spendingType = spendingType,
+					)
+					receipt to repository.snapshot()
+				}
+			}
+
+			result.onSuccess { (receipt, snapshot) ->
+				applySnapshot(snapshot, "Kategória upravená.")
+				_state.update { it.copy(selectedReceipt = receipt) }
+			}.onFailure { error ->
+				_state.update {
+					it.copy(message = error.message ?: "Kategóriu sa nepodarilo upraviť.")
+				}
+			}
 		}
 	}
 
@@ -247,6 +299,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 			val snapshot = withContext(Dispatchers.IO) { repository.snapshot() }
 			applySnapshot(snapshot)
 		}
+	}
+
+	override fun onCleared() {
+		database.close()
+		super.onCleared()
 	}
 
 	private fun addWoltDiagnostic(line: String) {

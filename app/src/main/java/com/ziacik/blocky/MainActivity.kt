@@ -35,10 +35,14 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -61,12 +65,15 @@ import androidx.compose.ui.unit.sp
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
+import com.ziacik.blocky.categorization.ExpenseTaxonomy
 import com.ziacik.blocky.data.wolt.WoltSyncScheduler
 import com.ziacik.blocky.model.CategoryTotal
 import com.ziacik.blocky.model.ItemListEntry
 import com.ziacik.blocky.model.Receipt
 import com.ziacik.blocky.model.ReceiptItem
 import com.ziacik.blocky.model.ReceiptSummary
+import com.ziacik.blocky.model.SpendingType
+import com.ziacik.blocky.ui.ClassificationEditorState
 import com.ziacik.blocky.ui.HomeOverlay
 import com.ziacik.blocky.ui.HomeOverlayIntent
 import com.ziacik.blocky.ui.HomeOverlayNavigation
@@ -191,6 +198,7 @@ class MainActivity : ComponentActivity() {
 					is MainScreen.ReceiptDetail -> ReceiptDetailScreen(
 						state = state,
 						onBack = viewModel::back,
+						onCorrectItem = viewModel::correctItemClassification,
 					)
 				}
 			}
@@ -708,11 +716,19 @@ private fun SettingsRow(
 	}
 }
 
+private data class IndexedReceiptItem(
+	val index: Int,
+	val item: ReceiptItem,
+)
+
 @Composable
 private fun ReceiptDetailScreen(
 	state: MainUiState,
 	onBack: () -> Unit,
+	onCorrectItem: (String, Int, String, String?, SpendingType) -> Unit,
 ) {
+	var editingItem by remember { mutableStateOf<IndexedReceiptItem?>(null) }
+
 	Scaffold(
 		containerColor = MaterialTheme.colorScheme.background,
 		topBar = {
@@ -762,7 +778,10 @@ private fun ReceiptDetailScreen(
 						SectionLabel("POLOŽKY")
 						Spacer(modifier = Modifier.height(10.dp))
 						receipt.items.forEachIndexed { index, item ->
-							ReceiptItemRow(item)
+							ReceiptItemRow(
+								item = item,
+								onClick = { editingItem = IndexedReceiptItem(index, item) },
+							)
 							if (index != receipt.items.lastIndex) {
 								FlatDivider()
 							}
@@ -777,6 +796,26 @@ private fun ReceiptDetailScreen(
 				}
 			}
 		}
+	}
+
+	editingItem?.let { editing ->
+		ClassificationDialog(
+			item = editing.item,
+			onDismiss = { editingItem = null },
+			onSave = { category, subcategory, spendingType ->
+				val receiptId = state.selectedReceipt?.id
+				if (receiptId != null) {
+					onCorrectItem(
+						receiptId,
+						editing.index,
+						category,
+						subcategory,
+						spendingType,
+					)
+				}
+				editingItem = null
+			},
+		)
 	}
 }
 
@@ -906,10 +945,14 @@ private fun ItemRow(
 }
 
 @Composable
-private fun ReceiptItemRow(item: ReceiptItem) {
+private fun ReceiptItemRow(
+	item: ReceiptItem,
+	onClick: () -> Unit,
+) {
 	Row(
 		modifier = Modifier
 			.fillMaxWidth()
+			.clickable(onClick = onClick)
 			.padding(vertical = 14.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
@@ -927,7 +970,7 @@ private fun ReceiptItemRow(item: ReceiptItem) {
 				overflow = TextOverflow.Ellipsis,
 			)
 			Text(
-				itemMeta(item.quantity, item.category),
+				itemMeta(item),
 				style = MaterialTheme.typography.bodySmall,
 				color = MaterialTheme.colorScheme.onSurfaceVariant,
 			)
@@ -938,7 +981,120 @@ private fun ReceiptItemRow(item: ReceiptItem) {
 			textAlign = TextAlign.End,
 			fontWeight = FontWeight.Bold,
 		)
+		Icon(
+			imageVector = Icons.Rounded.ChevronRight,
+			contentDescription = "Upraviť zaradenie",
+			modifier = Modifier
+				.padding(start = 7.dp)
+				.size(18.dp),
+			tint = MaterialTheme.colorScheme.onSurfaceVariant,
+		)
 	}
+}
+
+@Composable
+private fun ClassificationDialog(
+	item: ReceiptItem,
+	onDismiss: () -> Unit,
+	onSave: (String, String?, SpendingType) -> Unit,
+) {
+	var editor by remember(item) {
+		mutableStateOf(ClassificationEditorState.from(item))
+	}
+	var categoryExpanded by remember { mutableStateOf(false) }
+	var subcategoryExpanded by remember { mutableStateOf(false) }
+
+	AlertDialog(
+		onDismissRequest = onDismiss,
+		title = {
+			Text("Upraviť zaradenie")
+		},
+		text = {
+			Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+				Text(
+					item.originalName,
+					style = MaterialTheme.typography.bodyLarge,
+					fontWeight = FontWeight.Bold,
+				)
+
+				SectionLabel("KATEGÓRIA")
+				Box {
+					OutlinedButton(
+						onClick = { categoryExpanded = true },
+						modifier = Modifier.fillMaxWidth(),
+					) {
+						Text(editor.category)
+					}
+					DropdownMenu(
+						expanded = categoryExpanded,
+						onDismissRequest = { categoryExpanded = false },
+					) {
+						ExpenseTaxonomy.categories.keys.forEach { category ->
+							DropdownMenuItem(
+								text = { Text(category) },
+								onClick = {
+									editor = editor.selectCategory(category)
+									categoryExpanded = false
+								},
+							)
+						}
+					}
+				}
+
+				SectionLabel("PODKATEGÓRIA")
+				Box {
+					OutlinedButton(
+						onClick = { subcategoryExpanded = true },
+						modifier = Modifier.fillMaxWidth(),
+					) {
+						Text(editor.subcategory ?: "Bez podkategórie")
+					}
+					DropdownMenu(
+						expanded = subcategoryExpanded,
+						onDismissRequest = { subcategoryExpanded = false },
+					) {
+						ExpenseTaxonomy.categories[editor.category].orEmpty().forEach { subcategory ->
+							DropdownMenuItem(
+								text = { Text(subcategory) },
+								onClick = {
+									editor = editor.selectSubcategory(subcategory)
+									subcategoryExpanded = false
+								},
+							)
+						}
+					}
+				}
+
+				SectionLabel("TYP VÝDAVKU")
+				Row(
+					modifier = Modifier.fillMaxWidth(),
+					horizontalArrangement = Arrangement.spacedBy(6.dp),
+				) {
+					SpendingType.entries.forEach { spendingType ->
+						FilterChip(
+							selected = editor.spendingType == spendingType,
+							onClick = { editor = editor.selectSpendingType(spendingType) },
+							label = { Text(spendingTypeLabel(spendingType)) },
+						)
+					}
+				}
+			}
+		},
+		confirmButton = {
+			TextButton(
+				onClick = {
+					onSave(editor.category, editor.subcategory, editor.spendingType)
+				},
+			) {
+				Text("Uložiť")
+			}
+		},
+		dismissButton = {
+			TextButton(onClick = onDismiss) {
+				Text("Zrušiť")
+			}
+		},
+	)
 }
 
 @Composable
@@ -1031,13 +1187,24 @@ private fun receiptSource(id: String): String = if (id.startsWith("wolt:")) {
 	"E-KASA"
 }
 
-private fun itemMeta(quantity: Double, category: String): String {
-	val quantityText = if (quantity == quantity.toLong().toDouble()) {
-		quantity.toLong().toString()
+private fun itemMeta(item: ReceiptItem): String {
+	val quantityText = if (item.quantity == item.quantity.toLong().toDouble()) {
+		item.quantity.toLong().toString()
 	} else {
-		String.format(Locale.US, "%.2f", quantity).trimEnd('0').trimEnd('.')
+		String.format(Locale.US, "%.2f", item.quantity).trimEnd('0').trimEnd('.')
 	}
-	return quantityText + "×  ·  " + category.uppercase(Locale("sk", "SK"))
+	val classification = buildList {
+		add(item.category)
+		item.subcategory?.let(::add)
+		item.spendingType?.let { add(spendingTypeLabel(it)) }
+	}.joinToString("  ·  ")
+	return quantityText + "×  ·  " + classification.uppercase(Locale("sk", "SK"))
+}
+
+private fun spendingTypeLabel(spendingType: SpendingType): String = when (spendingType) {
+	SpendingType.ESSENTIAL -> "Nevyhnutné"
+	SpendingType.REGULAR -> "Bežné"
+	SpendingType.DISCRETIONARY -> "Voliteľné"
 }
 
 private fun money(cents: Long): String = NumberFormat.getCurrencyInstance(Locale("sk", "SK"))

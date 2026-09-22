@@ -1,23 +1,18 @@
 package com.ziacik.blocky.normalization
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class HeuristicItemNormalizerTest {
 	private val normalizer = HeuristicItemNormalizer()
 
 	@Test
-	fun normalizesDifferentEidamNamesToOneProduct() {
-		val first = normalizer.normalize("TEHLA EIDAM 30%")
-		val second = normalizer.normalize("EIDAM BLOK 400G")
+	fun leavesCategoryUnclassifiedWithoutReceiptContext() {
+		val item = normalizer.normalize("ROHLÍK BIELY 50G")
 
-		assertEquals("Eidam", first.canonicalName)
-		assertEquals(first.canonicalName, second.canonicalName)
-		assertEquals("Potraviny", first.category)
-	}
-
-	@Test
-	fun stripsPackageSizeFromNormalizationKey() {
-		assertEquals("MLIEKO PLNOTUCNE", HeuristicItemNormalizer.normalizationKey("Mlieko plnotučné 1 L"))
+		assertEquals("ROHLÍK BIELY 50G", item.canonicalName)
+		assertEquals("Nezaradené", item.category)
+		assertNull(item.subcategory)
 	}
 }

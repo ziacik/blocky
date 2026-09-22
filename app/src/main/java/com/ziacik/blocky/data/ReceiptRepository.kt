@@ -1,25 +1,67 @@
 package com.ziacik.blocky.data
 
+import com.ziacik.blocky.categorization.ExpenseTaxonomy
+import com.ziacik.blocky.categorization.ReceiptIngestor
 import com.ziacik.blocky.model.CategoryTotal
 import com.ziacik.blocky.model.ItemListEntry
 import com.ziacik.blocky.model.ProductTotal
 import com.ziacik.blocky.model.Receipt
 import com.ziacik.blocky.model.ReceiptSummary
+import com.ziacik.blocky.model.SpendingType
+
+interface ReceiptLookupClient {
+	fun findReceipt(qrValue: String): String
+}
+
+interface ReceiptParser {
+	fun parse(json: String): Receipt
+}
 
 class ReceiptRepository(
-	private val client: EkasaClient,
-	private val parser: EkasaReceiptParser,
+	private val client: ReceiptLookupClient,
+	private val parser: ReceiptParser,
 	private val database: BlockyDatabase,
+	private val ingestor: ReceiptIngestor,
 ) {
-	fun import(qrValue: String) {
+	fun import(qrValue: String): Receipt {
 		val json = client.findReceipt(qrValue)
-		val receipt = parser.parse(json)
-		database.save(receipt)
+		return ingestor.ingest(parser.parse(json))
 	}
 
 	fun receipt(receiptId: String): Receipt? = database.receipt(receiptId)
 
 	fun allItems(): List<ItemListEntry> = database.allItems()
+
+	fun correctItemClassification(
+		receiptId: String,
+		itemIndex: Int,
+		category: String,
+		subcategory: String?,
+		spendingType: SpendingType,
+	): Receipt {
+		ExpenseTaxonomy.requireValid(category, subcategory)
+		check(
+			database.updateItemClassification(
+				receiptId = receiptId,
+				itemIndex = itemIndex,
+				category = category,
+				subcategory = subcategory,
+				spendingType = spendingType,
+			)
+		) { "Položka sa nenašla." }
+
+		return checkNotNull(database.receipt(receiptId)) { "Bloček sa nenašiel." }
+	}
+
+	fun categorizePending(limit: Int = 50): Int {
+		var categorized = 0
+		database.receiptIdsNeedingClassification(limit).forEach { receiptId ->
+			val receipt = database.receipt(receiptId) ?: return@forEach
+			ingestor.ingest(receipt)
+			categorized++
+		}
+		return categorized
+	}
 
 	fun snapshot(): RepositorySnapshot = RepositorySnapshot(
 		totalCents = database.totalCents(),
