@@ -2,7 +2,6 @@ package com.ziacik.blocky.ui
 
 enum class WoltAction {
 	Connect,
-	Latest,
 	CurrentMonth,
 }
 
@@ -13,7 +12,7 @@ object WoltControls {
 	): List<WoltAction> {
 		if (busy) return emptyList()
 		return if (connected) {
-			listOf(WoltAction.Latest, WoltAction.CurrentMonth)
+			listOf(WoltAction.CurrentMonth)
 		} else {
 			listOf(WoltAction.Connect)
 		}
