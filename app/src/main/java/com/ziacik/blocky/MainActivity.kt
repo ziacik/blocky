@@ -192,7 +192,6 @@ private fun BlockyHome(
 						Button(
 							onClick = when (action) {
 								WoltAction.Connect -> onConnectWolt
-								WoltAction.Latest -> onLatestWolt
 								WoltAction.CurrentMonth -> onCurrentMonthWolt
 							},
 							enabled = !state.loading,
