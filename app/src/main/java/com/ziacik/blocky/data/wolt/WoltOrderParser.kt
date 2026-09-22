@@ -195,7 +195,7 @@ class WoltOrderParser(
 	}
 
 	private fun parseTimestamp(order: JSONObject): Long? {
-		val raw = listOf(
+		val topLevelKeys = listOf(
 			"creation_time",
 			"received_at",
 			"timestamp",
@@ -204,21 +204,44 @@ class WoltOrderParser(
 			"submitted_at",
 			"delivery_time",
 			"payment_time_ts",
+			"payment_time",
 			"time",
 		)
-			.firstNotNullOfOrNull { key -> order.opt(key).takeUnless { it == null || it == JSONObject.NULL } }
-			?: return null
+
+		for (key in topLevelKeys) {
+			parseTimestampValue(order.opt(key))?.let { return it }
+		}
+
+		val payments = order.optJSONArray("payments")
+		if (payments != null) {
+			for (index in 0 until payments.length()) {
+				val payment = payments.optJSONObject(index) ?: continue
+				for (key in listOf("payment_time", "payment_time_ts", "created_at", "timestamp")) {
+					parseTimestampValue(payment.opt(key))?.let { return it }
+				}
+			}
+		}
+
+		return null
+	}
+
+	private fun parseTimestampValue(raw: Any?): Long? {
+		if (raw == null || raw == JSONObject.NULL) return null
 
 		if (raw is Number) {
 			val value = raw.toLong()
 			return if (value < 10_000_000_000L) value * 1000 else value
 		}
 
-		val text = when (raw) {
-			is JSONObject -> firstString(raw, "iso", "$" + "date")
-				?: raw.optLong("epoch", Long.MIN_VALUE).takeIf { it != Long.MIN_VALUE }?.toString()
-			else -> raw.toString()
-		} ?: return null
+		if (raw is JSONObject) {
+			for (key in listOf("iso", "$" + "date", "epoch", "value")) {
+				parseTimestampValue(raw.opt(key))?.let { return it }
+			}
+			return null
+		}
+
+		val text = raw.toString().trim()
+		if (text.isEmpty()) return null
 
 		text.toLongOrNull()?.let { value ->
 			return if (value < 10_000_000_000L) value * 1000 else value
@@ -278,8 +301,13 @@ class WoltOrderParser(
 	private companion object {
 		val TIMESTAMP_FORMATTERS = listOf(
 			DateTimeFormatter.ofPattern("dd/MM/yyyy, HH:mm"),
+			DateTimeFormatter.ofPattern("d/M/yyyy, H:mm"),
 			DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"),
+			DateTimeFormatter.ofPattern("d/M/yyyy H:mm"),
+			DateTimeFormatter.ofPattern("dd.MM.yyyy, HH:mm"),
+			DateTimeFormatter.ofPattern("d.M.yyyy, H:mm"),
 			DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"),
+			DateTimeFormatter.ofPattern("d.M.yyyy H:mm"),
 			DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"),
 			DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"),
 		)
