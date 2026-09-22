@@ -19,6 +19,7 @@ import com.ziacik.blocky.model.ProductTotal
 import com.ziacik.blocky.model.Receipt
 import com.ziacik.blocky.model.ReceiptSummary
 import com.ziacik.blocky.model.SpendingType
+import com.ziacik.blocky.model.SubcategoryTotal
 import com.ziacik.blocky.normalization.HeuristicItemNormalizer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,6 +38,7 @@ data class MainUiState(
 	val totalCents: Long = 0,
 	val receipts: List<ReceiptSummary> = emptyList(),
 	val categories: List<CategoryTotal> = emptyList(),
+	val subcategories: List<SubcategoryTotal> = emptyList(),
 	val products: List<ProductTotal> = emptyList(),
 	val allItems: List<ItemListEntry> = emptyList(),
 	val selectedReceipt: Receipt? = null,
@@ -328,6 +330,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 				totalCents = snapshot.totalCents,
 				receipts = snapshot.receipts,
 				categories = snapshot.categories,
+				subcategories = snapshot.subcategories,
 				products = snapshot.products,
 				woltConnected = woltSessionStore.isConnected(),
 				message = message,

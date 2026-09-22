@@ -73,6 +73,7 @@ import com.ziacik.blocky.model.Receipt
 import com.ziacik.blocky.model.ReceiptItem
 import com.ziacik.blocky.model.ReceiptSummary
 import com.ziacik.blocky.model.SpendingType
+import com.ziacik.blocky.model.SubcategoryTotal
 import com.ziacik.blocky.ui.ClassificationEditorState
 import com.ziacik.blocky.ui.HomeOverlay
 import com.ziacik.blocky.ui.HomeOverlayIntent
@@ -409,6 +410,7 @@ private fun OverviewScreen(
 			item {
 				CategoryBreakdown(
 					categories = state.categories,
+					subcategories = state.subcategories,
 					totalCents = state.totalCents,
 				)
 			}
@@ -436,12 +438,37 @@ private fun OverviewScreen(
 @Composable
 private fun CategoryBreakdown(
 	categories: List<CategoryTotal>,
+	subcategories: List<SubcategoryTotal>,
 	totalCents: Long,
 ) {
-	val visible = categories.filter { it.totalCents > 0 }.take(5)
+	var showSubcategories by remember { mutableStateOf(false) }
+	val visible = if (showSubcategories) {
+		subcategories
+			.filter { it.totalCents > 0 }
+			.map { BreakdownTotal(it.subcategory, it.totalCents) }
+			.take(5)
+	} else {
+		categories
+			.filter { it.totalCents > 0 }
+			.map { BreakdownTotal(it.category, it.totalCents) }
+			.take(5)
+	}
 
 	Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
 		SectionLabel("KAM IŠLI PENIAZE")
+
+		Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+			FilterChip(
+				selected = !showSubcategories,
+				onClick = { showSubcategories = false },
+				label = { Text("Kategórie") },
+			)
+			FilterChip(
+				selected = showSubcategories,
+				onClick = { showSubcategories = true },
+				label = { Text("Podkategórie") },
+			)
+		}
 
 		if (visible.isNotEmpty()) {
 			Row(
@@ -449,10 +476,10 @@ private fun CategoryBreakdown(
 					.fillMaxWidth()
 					.height(14.dp),
 			) {
-				visible.forEachIndexed { index, category ->
+				visible.forEachIndexed { index, entry ->
 					Box(
 						modifier = Modifier
-							.weight(category.totalCents.toFloat().coerceAtLeast(1f))
+							.weight(entry.totalCents.toFloat().coerceAtLeast(1f))
 							.height(14.dp)
 							.background(CategoryColors[index % CategoryColors.size]),
 					)
@@ -460,9 +487,9 @@ private fun CategoryBreakdown(
 			}
 		}
 
-		visible.take(4).forEachIndexed { index, category ->
+		visible.take(4).forEachIndexed { index, entry ->
 			val percentage = if (totalCents > 0) {
-				category.totalCents * 100.0 / totalCents
+				entry.totalCents * 100.0 / totalCents
 			} else {
 				0.0
 			}
@@ -477,7 +504,7 @@ private fun CategoryBreakdown(
 				)
 				Spacer(modifier = Modifier.width(10.dp))
 				Text(
-					category.category,
+					entry.label,
 					modifier = Modifier.weight(1f),
 					style = MaterialTheme.typography.bodyMedium,
 					fontWeight = FontWeight.Medium,
@@ -491,7 +518,7 @@ private fun CategoryBreakdown(
 				)
 				Spacer(modifier = Modifier.width(12.dp))
 				Text(
-					money(category.totalCents),
+					money(entry.totalCents),
 					modifier = Modifier.widthIn(min = 78.dp),
 					style = MaterialTheme.typography.bodyMedium,
 					fontWeight = FontWeight.Bold,
@@ -501,6 +528,11 @@ private fun CategoryBreakdown(
 		}
 	}
 }
+
+private data class BreakdownTotal(
+	val label: String,
+	val totalCents: Long,
+)
 
 @Composable
 private fun ReceiptsScreen(

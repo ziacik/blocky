@@ -4,6 +4,7 @@ import com.ziacik.blocky.model.ClassificationSource
 import com.ziacik.blocky.model.Receipt
 import com.ziacik.blocky.model.ReceiptItem
 import com.ziacik.blocky.model.SpendingType
+import com.ziacik.blocky.model.SubcategoryTotal
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -83,6 +84,27 @@ class BlockyDatabaseClassificationTest {
 		assertEquals("Pečivo", loaded.subcategory)
 		assertEquals(SpendingType.ESSENTIAL, loaded.spendingType)
 		assertEquals(ClassificationSource.USER, loaded.classificationSource)
+	}
+
+	@Test
+	fun aggregatesSubcategoryTotals() {
+		database.save(
+			receipt(
+				items = listOf(
+					item("ROHLÍK BIELY", "Pečivo"),
+					item("CHLIEB", "Pečivo"),
+					item("MILKA OREO", "Sladkosti"),
+				),
+			),
+		)
+
+		assertEquals(
+			listOf(
+				SubcategoryTotal("Potraviny", "Pečivo", 398L),
+				SubcategoryTotal("Potraviny", "Sladkosti", 199L),
+			),
+			database.subcategoryTotals(),
+		)
 	}
 
 	@Test
