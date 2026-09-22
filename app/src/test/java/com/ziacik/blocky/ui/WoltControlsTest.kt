@@ -13,10 +13,18 @@ class WoltControlsTest {
 	}
 
 	@Test
-	fun connectedShowsLatestAndCurrentMonthDownloads() {
+	fun connectedShowsOnlyCurrentMonthSync() {
 		assertEquals(
-			listOf(WoltAction.Latest, WoltAction.CurrentMonth),
+			listOf(WoltAction.CurrentMonth),
 			WoltControls.actions(connected = true, busy = false),
+		)
+	}
+
+	@Test
+	fun busyShowsNoAction() {
+		assertEquals(
+			emptyList<WoltAction>(),
+			WoltControls.actions(connected = true, busy = true),
 		)
 	}
 }
