@@ -1,5 +1,6 @@
 package com.ziacik.blocky.categorization
 
+import com.ziacik.blocky.model.ClassificationSource
 import com.ziacik.blocky.model.Receipt
 import com.ziacik.blocky.model.SpendingType
 
@@ -60,6 +61,7 @@ class AiReceiptCategorizer(
 					subcategory = categorized.subcategory,
 					spendingType = categorized.spendingType,
 					classificationConfidence = categorized.confidence,
+					classificationSource = ClassificationSource.AI,
 				)
 			},
 		)

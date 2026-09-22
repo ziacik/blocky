@@ -11,8 +11,8 @@ import java.util.Locale
 
 class EkasaReceiptParser(
 	private val normalizer: ItemNormalizer,
-) {
-	fun parse(json: String): Receipt {
+) : ReceiptParser {
+	override fun parse(json: String): Receipt {
 		val root = JSONObject(json)
 		if (root.optInt("returnValue", -1) != 0) {
 			val message = root.optString("errorDescription").ifBlank { "Doklad sa v eKase nenašiel." }

@@ -3,6 +3,13 @@ plugins {
 	id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val categorizationEndpoint = providers.gradleProperty("BLOCKY_CATEGORIZATION_ENDPOINT")
+	.orElse(providers.environmentVariable("BLOCKY_CATEGORIZATION_ENDPOINT"))
+	.getOrElse("")
+val escapedCategorizationEndpoint = categorizationEndpoint
+	.replace("\\", "\\\\")
+	.replace(""", "\\"")
+
 android {
 	namespace = "com.ziacik.blocky"
 	compileSdk = 37
@@ -15,10 +22,12 @@ android {
 		versionName = "0.1.0"
 
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+		buildConfigField("String", "CATEGORIZATION_ENDPOINT", ""$escapedCategorizationEndpoint"")
 	}
 
 	buildFeatures {
 		compose = true
+		buildConfig = true
 	}
 
 	compileOptions {

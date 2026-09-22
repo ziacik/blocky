@@ -1,11 +1,18 @@
 package com.ziacik.blocky.data.wolt
 
 import android.content.Context
+import com.ziacik.blocky.BuildConfig
+import com.ziacik.blocky.categorization.CategorizationPipeline
+import com.ziacik.blocky.categorization.ReceiptCategorizer
+import com.ziacik.blocky.categorization.ReceiptIngestor
 import com.ziacik.blocky.data.BlockyDatabase
 import com.ziacik.blocky.normalization.HeuristicItemNormalizer
 import java.time.ZoneId
 
-class WoltSyncService(context: Context) {
+class WoltSyncService(
+	context: Context,
+	private val categorizer: ReceiptCategorizer = CategorizationPipeline.create(BuildConfig.CATEGORIZATION_ENDPOINT),
+) {
 	private val appContext = context.applicationContext
 	private val sessionStore = WoltSessionStore(appContext)
 	private val client = WoltClient(sessionStore)
@@ -72,13 +79,13 @@ class WoltSyncService(context: Context) {
 		)
 
 		val database = BlockyDatabase(appContext)
-		try {
-			database.save(receipt)
+		return try {
+			val categorized = ReceiptIngestor(categorizer, database).ingest(receipt)
+			diagnostic("db: uložené receiptId=" + categorized.id)
+			categorized
 		} finally {
 			database.close()
 		}
-		diagnostic("db: uložené receiptId=" + receipt.id)
-		return receipt
 	}
 
 	fun importCurrentMonth(
@@ -108,6 +115,7 @@ class WoltSyncService(context: Context) {
 		var imported = 0
 		var skipped = 0
 		val database = BlockyDatabase(appContext)
+		val ingestor = ReceiptIngestor(categorizer, database)
 		try {
 			for ((index, historyOrder) in historyOrders.withIndex()) {
 				val receiptId = "wolt:" + historyOrder.purchaseId
@@ -144,12 +152,12 @@ class WoltSyncService(context: Context) {
 					continue
 				}
 
-				database.save(receipt)
+				val categorized = ingestor.ingest(receipt)
 				imported++
 				diagnostic(
-					"saved: " + receipt.merchant +
-						", items=" + receipt.items.size +
-						", total=" + receipt.totalCents,
+					"saved: " + categorized.merchant +
+						", items=" + categorized.items.size +
+						", total=" + categorized.totalCents,
 				)
 			}
 		} finally {
@@ -177,6 +185,7 @@ class WoltSyncService(context: Context) {
 
 		var imported = 0
 		val database = BlockyDatabase(appContext)
+		val ingestor = ReceiptIngestor(categorizer, database)
 		try {
 			for (purchaseId in purchaseIds) {
 				val receiptId = "wolt:" + purchaseId
@@ -192,7 +201,7 @@ class WoltSyncService(context: Context) {
 					continue
 				}
 
-				database.save(receipt)
+				ingestor.ingest(receipt)
 				imported++
 			}
 		} finally {
