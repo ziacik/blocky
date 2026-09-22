@@ -56,6 +56,14 @@ class MainNavigationTest {
 	}
 
 	@Test
+	fun backFromSettingsReturnsOverview() {
+		assertEquals(
+			MainScreen.Overview,
+			MainNavigation.reduce(MainScreen.Settings, MainIntent.Back),
+		)
+	}
+
+	@Test
 	fun diagnosticsMenuOpensDiagnosticsOverlay() {
 		assertEquals(
 			HomeOverlay.Diagnostics,
