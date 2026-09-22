@@ -4,6 +4,30 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 object WoltDiagnosticFormatter {
+	fun historySummary(json: String, purchaseId: String): List<String> {
+		val root = runCatching { JSONObject(json) }.getOrNull()
+			?: return listOf("history: invalid JSON")
+		val orders = root.optJSONArray("orders") ?: JSONArray()
+
+		for (index in 0 until orders.length()) {
+			val order = orders.optJSONObject(index) ?: continue
+			val id = sequenceOf("purchase_id", "order_id", "id")
+				.map { key -> order.optString(key) }
+				.firstOrNull { it.isNotBlank() }
+				?: continue
+			if (id != purchaseId) continue
+
+			return listOf(
+				"history raw: received_at=" + raw(order, "received_at") +
+					", payment_time_ts=" + raw(order, "payment_time_ts"),
+				"history raw: creation_time=" + raw(order, "creation_time") +
+					", delivery_time=" + raw(order, "delivery_time"),
+			)
+		}
+
+		return listOf("history: selected purchase payload not found")
+	}
+
 	fun detailSummary(json: String, maxItems: Int = 5): List<String> {
 		val root = runCatching { JSONObject(json) }.getOrNull()
 			?: return listOf("detail: invalid JSON")
