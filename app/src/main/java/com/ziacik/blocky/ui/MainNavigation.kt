@@ -36,6 +36,7 @@ object MainNavigation {
 		MainIntent.OpenSettings -> MainScreen.Settings
 		MainIntent.Back -> when (current) {
 			is MainScreen.ReceiptDetail -> current.returnTo
+			MainScreen.Settings -> MainScreen.Overview
 			else -> current
 		}
 	}
