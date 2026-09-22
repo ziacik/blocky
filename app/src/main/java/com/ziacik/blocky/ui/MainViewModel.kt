@@ -48,7 +48,10 @@ data class MainUiState(
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 	private val database = BlockyDatabase(application)
-	private val categorizer = CategorizationPipeline.create(BuildConfig.CATEGORIZATION_ENDPOINT)
+	private val categorizer = CategorizationPipeline.create(
+		endpoint = BuildConfig.CATEGORIZATION_ENDPOINT,
+		apiKey = BuildConfig.OPENAI_API_KEY,
+	)
 	private val repository = ReceiptRepository(
 		client = EkasaClient(),
 		parser = EkasaReceiptParser(HeuristicItemNormalizer()),
@@ -62,7 +65,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
 	init {
 		refresh()
-		if (BuildConfig.CATEGORIZATION_ENDPOINT.isNotBlank()) {
+		if (BuildConfig.OPENAI_API_KEY.isNotBlank() || BuildConfig.CATEGORIZATION_ENDPOINT.isNotBlank()) {
 			categorizePending()
 		}
 	}

@@ -11,6 +11,14 @@ val escapedCategorizationEndpoint = categorizationEndpoint
 	.replace("\"", "\\\"")
 val quotedCategorizationEndpoint = "\"" + escapedCategorizationEndpoint + "\""
 
+val openAiApiKey = providers.gradleProperty("OPENAI_API_KEY")
+	.orElse(providers.environmentVariable("OPENAI_API_KEY"))
+	.getOrElse("")
+val escapedOpenAiApiKey = openAiApiKey
+	.replace("\\", "\\\\")
+	.replace("\"", "\\\"")
+val quotedOpenAiApiKey = "\"" + escapedOpenAiApiKey + "\""
+
 android {
 	namespace = "com.ziacik.blocky"
 	compileSdk = 37
@@ -24,6 +32,7 @@ android {
 
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 		buildConfigField("String", "CATEGORIZATION_ENDPOINT", quotedCategorizationEndpoint)
+		buildConfigField("String", "OPENAI_API_KEY", quotedOpenAiApiKey)
 	}
 
 	buildFeatures {

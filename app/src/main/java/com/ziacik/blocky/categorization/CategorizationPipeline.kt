@@ -14,11 +14,16 @@ class ResilientReceiptCategorizer(
 object CategorizationPipeline {
 	fun create(
 		endpoint: String,
+		apiKey: String = "",
 		transportFactory: (String) -> CategorizationTransport = ::UrlCategorizationTransport,
+		openAiClientFactory: (String) -> CategorizationClient = ::OpenAiCategorizationClient,
 	): ReceiptCategorizer {
-		if (endpoint.isBlank()) return PassthroughReceiptCategorizer()
+		val client = when {
+			apiKey.isNotBlank() -> openAiClientFactory(apiKey)
+			endpoint.isNotBlank() -> HttpCategorizationClient(transportFactory(endpoint))
+			else -> return PassthroughReceiptCategorizer()
+		}
 
-		val client = HttpCategorizationClient(transportFactory(endpoint))
 		return ResilientReceiptCategorizer(AiReceiptCategorizer(client))
 	}
 }

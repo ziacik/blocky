@@ -27,9 +27,25 @@ Povolené kategórie a podkategórie sú definované v `ExpenseTaxonomy`. Odpove
 
 Manuálna oprava sa ukladá iba pre konkrétnu položku daného bločku. Nie je tu používateľský rule engine.
 
-## AI backend
+## AI kategorizácia
 
-API kľúč sa neukladá do APK. Android volá vlastný backend cez endpoint nakonfigurovaný build-time hodnotou:
+Pre osobný build môže appka volať OpenAI priamo. Nastav `OPENAI_API_KEY` pri builde:
+
+```bash
+OPENAI_API_KEY="tvoj-api-key" ./gradlew assembleDebug
+```
+
+alebo pri deployi:
+
+```bash
+OPENAI_API_KEY="tvoj-api-key" ./scripts/deploy.sh
+```
+
+Používa sa OpenAI Responses API so Structured Outputs a model `gpt-5.6-luna`. Názov obchodníka aj celý zoznam položiek idú v jednom requeste.
+
+**Pozor:** pri tomto režime je API key súčasťou výsledného APK. Je to určené na vlastný build do vlastného telefónu; APK s vloženým kľúčom nezverejňuj.
+
+Ak `OPENAI_API_KEY` nie je nastavený, zostáva podporovaný vlastný backend cez endpoint:
 
 ```bash
 export BLOCKY_CATEGORIZATION_ENDPOINT="https://example.com/categorize"
@@ -38,7 +54,7 @@ export BLOCKY_CATEGORIZATION_ENDPOINT="https://example.com/categorize"
 
 Alternatívne sa dá použiť Gradle property rovnakého mena.
 
-Ak endpoint nie je nastavený alebo backend zlyhá, import bločku pokračuje a položky zostanú nezaradené namiesto pádu aplikácie. Po nakonfigurovaní endpointu sa pri štarte do-kategorizujú aj existujúce nezaradené bločky.
+Ak nie je nastavený ani API key ani endpoint, alebo kategorizácia zlyhá, import bločku pokračuje a položky zostanú nezaradené namiesto pádu aplikácie. Po nakonfigurovaní endpointu sa pri štarte do-kategorizujú aj existujúce nezaradené bločky.
 
 ### Request
 

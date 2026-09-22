@@ -11,7 +11,10 @@ import java.time.ZoneId
 
 class WoltSyncService(
 	context: Context,
-	private val categorizer: ReceiptCategorizer = CategorizationPipeline.create(BuildConfig.CATEGORIZATION_ENDPOINT),
+	private val categorizer: ReceiptCategorizer = CategorizationPipeline.create(
+		endpoint = BuildConfig.CATEGORIZATION_ENDPOINT,
+		apiKey = BuildConfig.OPENAI_API_KEY,
+	),
 ) {
 	private val appContext = context.applicationContext
 	private val sessionStore = WoltSessionStore(appContext)
