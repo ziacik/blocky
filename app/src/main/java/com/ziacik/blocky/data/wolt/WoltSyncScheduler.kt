@@ -15,6 +15,12 @@ object WoltSyncScheduler {
 		.setRequiredNetworkType(NetworkType.CONNECTED)
 		.build()
 
+	fun disable(context: Context) {
+		val workManager = WorkManager.getInstance(context.applicationContext)
+		workManager.cancelUniqueWork(PERIODIC_WORK)
+		workManager.cancelUniqueWork(IMMEDIATE_WORK)
+	}
+
 	fun schedulePeriodic(context: Context) {
 		val request = PeriodicWorkRequestBuilder<WoltSyncWorker>(6, TimeUnit.HOURS)
 			.setConstraints(networkConstraint)
