@@ -27,4 +27,20 @@ class MainNavigationTest {
 			MainNavigation.reduce(MainScreen.ReceiptDetail("wolt:123"), MainIntent.Back),
 		)
 	}
+
+	@Test
+	fun diagnosticsMenuOpensDiagnosticsOverlay() {
+		assertEquals(
+			HomeOverlay.Diagnostics,
+			HomeOverlayNavigation.reduce(HomeOverlay.None, HomeOverlayIntent.OpenDiagnostics),
+		)
+	}
+
+	@Test
+	fun diagnosticsOverlayCanBeClosed() {
+		assertEquals(
+			HomeOverlay.None,
+			HomeOverlayNavigation.reduce(HomeOverlay.Diagnostics, HomeOverlayIntent.Close),
+		)
+	}
 }
