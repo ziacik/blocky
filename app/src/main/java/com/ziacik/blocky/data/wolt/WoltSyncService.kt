@@ -14,6 +14,60 @@ class WoltSyncService(context: Context) {
 		zoneId = ZoneId.of("Europe/Bratislava"),
 	)
 
+	fun importLatestOrder(
+		diagnostic: (String) -> Unit = {},
+	): com.ziacik.blocky.model.Receipt? {
+		if (!sessionStore.isConnected()) {
+			diagnostic("session: Wolt nie je pripojený")
+			return null
+		}
+
+		diagnostic("session: pripojený")
+		diagnostic("history: načítavam posledné objednávky")
+		val historyJson = client.fetchOrderHistory(
+			limit = 10,
+			diagnostic = diagnostic,
+		)
+		val purchaseId = parser.latestPurchaseId(historyJson)
+		if (purchaseId == null) {
+			diagnostic("history: nenašla sa žiadna objednávka")
+			return null
+		}
+
+		diagnostic("history: selected purchaseId=" + purchaseId)
+		diagnostic("detail: načítavam jednu objednávku")
+		val detailJson = client.fetchOrderDetail(
+			purchaseId = purchaseId,
+			diagnostic = diagnostic,
+		)
+		WoltDiagnosticFormatter.detailSummary(detailJson).forEach(diagnostic)
+
+		val receipt = parser.parseOrderDetail(detailJson)
+		if (receipt == null) {
+			diagnostic("parse: detail sa nepodarilo premeniť na bloček")
+			return null
+		}
+
+		val pricedItems = receipt.items.count { it.totalCents > 0L }
+		val zeroItems = receipt.items.size - pricedItems
+		diagnostic(
+			"parse: merchant=" + receipt.merchant +
+				", total=" + receipt.totalCents +
+				", items=" + receipt.items.size +
+				", priced=" + pricedItems +
+				", zero=" + zeroItems,
+		)
+
+		val database = BlockyDatabase(appContext)
+		try {
+			database.save(receipt)
+		} finally {
+			database.close()
+		}
+		diagnostic("db: uložené receiptId=" + receipt.id)
+		return receipt
+	}
+
 	fun sync(): Int {
 		if (!sessionStore.isConnected()) return 0
 
