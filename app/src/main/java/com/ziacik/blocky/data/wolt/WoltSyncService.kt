@@ -28,21 +28,30 @@ class WoltSyncService(context: Context) {
 			limit = 10,
 			diagnostic = diagnostic,
 		)
-		val purchaseId = parser.latestPurchaseId(historyJson)
-		if (purchaseId == null) {
+		val historyOrder = parser.latestHistoryOrder(historyJson)
+		if (historyOrder == null) {
 			diagnostic("history: nenašla sa žiadna objednávka")
 			return null
 		}
 
-		diagnostic("history: selected purchaseId=" + purchaseId)
+		diagnostic(
+			"history: selected purchaseId=" + historyOrder.purchaseId +
+				", issuedAt=" + (historyOrder.issuedAt?.toString() ?: "<missing>") +
+				", merchant=" + (historyOrder.merchant ?: "<missing>"),
+		)
 		diagnostic("detail: načítavam jednu objednávku")
 		val detailJson = client.fetchOrderDetail(
-			purchaseId = purchaseId,
+			purchaseId = historyOrder.purchaseId,
 			diagnostic = diagnostic,
 		)
 		WoltDiagnosticFormatter.detailSummary(detailJson).forEach(diagnostic)
 
-		val receipt = parser.parseOrderDetail(detailJson)
+		val receipt = parser.parseOrderDetail(
+			json = detailJson,
+			fallbackPurchaseId = historyOrder.purchaseId,
+			fallbackIssuedAt = historyOrder.issuedAt,
+			fallbackMerchant = historyOrder.merchant,
+		)
 		if (receipt == null) {
 			diagnostic("parse: detail sa nepodarilo premeniť na bloček")
 			return null
