@@ -51,6 +51,8 @@ import com.ziacik.blocky.model.ReceiptSummary
 import com.ziacik.blocky.ui.MainScreen
 import com.ziacik.blocky.ui.MainUiState
 import com.ziacik.blocky.ui.MainViewModel
+import com.ziacik.blocky.ui.WoltAction
+import com.ziacik.blocky.ui.WoltControls
 import java.text.DateFormat
 import java.text.NumberFormat
 import java.util.Date
@@ -93,13 +95,11 @@ class MainActivity : ComponentActivity() {
 										viewModel.showMessage(error.message ?: "Skenovanie zlyhalo.")
 									}
 							},
-							onWolt = {
-								if (state.woltConnected) {
-									viewModel.downloadLatestWoltOrder()
-								} else {
-									startActivity(Intent(this, WoltLoginActivity::class.java))
-								}
+							onConnectWolt = {
+								startActivity(Intent(this, WoltLoginActivity::class.java))
 							},
+							onLatestWolt = viewModel::downloadLatestWoltOrder,
+							onCurrentMonthWolt = viewModel::downloadCurrentMonthWoltOrders,
 							onClearWoltDiagnostics = viewModel::clearWoltDiagnostics,
 							onReceipt = viewModel::openReceipt,
 							onAllItems = viewModel::openAllItems,
@@ -131,7 +131,9 @@ class MainActivity : ComponentActivity() {
 private fun BlockyHome(
 	state: MainUiState,
 	onScan: () -> Unit,
-	onWolt: () -> Unit,
+	onConnectWolt: () -> Unit,
+	onLatestWolt: () -> Unit,
+	onCurrentMonthWolt: () -> Unit,
 	onClearWoltDiagnostics: () -> Unit,
 	onReceipt: (String) -> Unit,
 	onAllItems: () -> Unit,
@@ -174,19 +176,45 @@ private fun BlockyHome(
 				}
 			}
 			item {
-				Button(
-					onClick = onWolt,
-					enabled = !state.loading && !state.woltBusy,
-					modifier = Modifier.fillMaxWidth(),
-				) {
-					Text(
-						when {
-							!state.woltConnected -> "Prepojiť Wolt"
-							state.woltBusy -> "Sťahujem jednu objednávku…"
-							else -> "Stiahnuť poslednú Wolt objednávku"
+				val actions = WoltControls.actions(
+					connected = state.woltConnected,
+					busy = state.woltBusy,
+				)
+
+				if (state.woltBusy) {
+					Button(
+						onClick = {},
+						enabled = false,
+						modifier = Modifier.fillMaxWidth(),
+					) {
+						Text("Sťahujem Wolt…")
+					}
+				} else {
+					actions.forEach { action ->
+						Button(
+							onClick = when (action) {
+								WoltAction.Connect -> onConnectWolt
+								WoltAction.Latest -> onLatestWolt
+								WoltAction.CurrentMonth -> onCurrentMonthWolt
+							},
+							enabled = !state.loading,
+							modifier = Modifier.fillMaxWidth(),
+						) {
+							Text(
+								when (action) {
+									WoltAction.Connect -> "Prepojiť Wolt"
+									WoltAction.Latest -> "Stiahnuť poslednú Wolt objednávku"
+									WoltAction.CurrentMonth ->
+										"Stiahnuť všetky Wolt objednávky za aktuálny mesiac"
+								}
+							)
 						}
-					)
+						if (action != actions.last()) {
+							Spacer(modifier = Modifier.height(8.dp))
+						}
+					}
 				}
+
 				state.message?.let {
 					Spacer(modifier = Modifier.height(8.dp))
 					Text(it, style = MaterialTheme.typography.bodyMedium)
