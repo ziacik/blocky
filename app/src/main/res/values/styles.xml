@@ -5,6 +5,7 @@
 		<item name="android:windowLightStatusBar">true</item>
 		<item name="android:statusBarColor">@android:color/transparent</item>
 		<item name="android:windowBackground">@color/blocky_background</item>
-		<item name="android:navigationBarColor">@color/blocky_background</item>
+		<item name="android:navigationBarColor">@color/blocky_ink</item>
+		<item name="android:windowLightNavigationBar">false</item>
 	</style>
 </resources>
