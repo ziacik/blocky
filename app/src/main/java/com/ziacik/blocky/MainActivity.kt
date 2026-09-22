@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -237,7 +238,9 @@ private fun BrandHeader(onSettings: () -> Unit) {
 	Row(
 		modifier = Modifier
 			.fillMaxWidth()
-			.padding(start = 20.dp, top = 14.dp, end = 8.dp, bottom = 8.dp),
+			.statusBarsPadding()
+			.height(64.dp)
+			.padding(start = 20.dp, end = 4.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
 		Box(
@@ -255,11 +258,14 @@ private fun BrandHeader(onSettings: () -> Unit) {
 			fontWeight = FontWeight.Black,
 			letterSpacing = (-0.6).sp,
 		)
-		IconButton(onClick = onSettings) {
+		IconButton(
+			onClick = onSettings,
+			modifier = Modifier.size(56.dp),
+		) {
 			Icon(
 				imageVector = Icons.Rounded.Settings,
 				contentDescription = "Nastavenia",
-				modifier = Modifier.size(21.dp),
+				modifier = Modifier.size(23.dp),
 			)
 		}
 	}
@@ -580,7 +586,9 @@ private fun SettingsScreen(
 			Row(
 				modifier = Modifier
 					.fillMaxWidth()
-					.padding(start = 8.dp, top = 12.dp, end = 20.dp, bottom = 8.dp),
+					.statusBarsPadding()
+					.height(64.dp)
+					.padding(start = 8.dp, end = 20.dp),
 				verticalAlignment = Alignment.CenterVertically,
 			) {
 				IconButton(onClick = onBack) {
