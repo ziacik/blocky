@@ -39,6 +39,10 @@ class WoltSyncService(context: Context) {
 				", issuedAt=" + (historyOrder.issuedAt?.toString() ?: "<missing>") +
 				", merchant=" + (historyOrder.merchant ?: "<missing>"),
 		)
+		WoltDiagnosticFormatter.historySummary(
+			historyJson,
+			historyOrder.purchaseId,
+		).forEach(diagnostic)
 		diagnostic("detail: načítavam jednu objednávku")
 		val detailJson = client.fetchOrderDetail(
 			purchaseId = historyOrder.purchaseId,
