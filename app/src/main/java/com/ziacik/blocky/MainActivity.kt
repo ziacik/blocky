@@ -98,7 +98,6 @@ class MainActivity : ComponentActivity() {
 							onConnectWolt = {
 								startActivity(Intent(this, WoltLoginActivity::class.java))
 							},
-							onLatestWolt = viewModel::downloadLatestWoltOrder,
 							onCurrentMonthWolt = viewModel::downloadCurrentMonthWoltOrders,
 							onClearWoltDiagnostics = viewModel::clearWoltDiagnostics,
 							onReceipt = viewModel::openReceipt,
@@ -132,7 +131,6 @@ private fun BlockyHome(
 	state: MainUiState,
 	onScan: () -> Unit,
 	onConnectWolt: () -> Unit,
-	onLatestWolt: () -> Unit,
 	onCurrentMonthWolt: () -> Unit,
 	onClearWoltDiagnostics: () -> Unit,
 	onReceipt: (String) -> Unit,
@@ -203,9 +201,8 @@ private fun BlockyHome(
 							Text(
 								when (action) {
 									WoltAction.Connect -> "Prepojiť Wolt"
-									WoltAction.Latest -> "Stiahnuť poslednú Wolt objednávku"
 									WoltAction.CurrentMonth ->
-										"Stiahnuť všetky Wolt objednávky za aktuálny mesiac"
+										"Synchronizovať Wolt – aktuálny mesiac"
 								}
 							)
 						}
