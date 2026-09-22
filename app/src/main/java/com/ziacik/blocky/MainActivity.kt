@@ -3,6 +3,7 @@ package com.ziacik.blocky
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -76,6 +77,9 @@ class MainActivity : ComponentActivity() {
 			MaterialTheme {
 				Surface(modifier = Modifier.fillMaxSize()) {
 					val state by viewModel.state.collectAsState()
+					BackHandler(enabled = state.screen != MainScreen.Home) {
+						viewModel.back()
+					}
 					when (state.screen) {
 						MainScreen.Home -> BlockyHome(
 							state = state,
