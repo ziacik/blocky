@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-	<color name="blocky_background">#F7F7F5</color>
-	<color name="blocky_icon_background">#171717</color>
+	<color name="blocky_background">#F3F0EA</color>
+	<color name="blocky_ink">#171513</color>
+	<color name="blocky_accent">#FF5533</color>
+	<color name="blocky_icon_background">#171513</color>
 </resources>
