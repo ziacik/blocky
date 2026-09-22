@@ -46,6 +46,26 @@ class CategorizationJsonTest {
 	}
 
 	@Test
+	fun responseRejectsMissingSubcategory() {
+		assertThrows(IllegalArgumentException::class.java) {
+			CategorizationJson.decodeResponse(
+				"""
+				{
+					"items": [{
+						"index": 0,
+						"canonicalName": "Biely rožok",
+						"category": "Potraviny",
+						"subcategory": null,
+						"spendingType": "ESSENTIAL",
+						"confidence": 0.96
+					}]
+				}
+				""".trimIndent(),
+			)
+		}
+	}
+
+	@Test
 	fun responseRejectsCategoryOutsideTaxonomy() {
 		assertThrows(IllegalArgumentException::class.java) {
 			CategorizationJson.decodeResponse(
