@@ -5,26 +5,53 @@ import org.junit.Test
 
 class MainNavigationTest {
 	@Test
-	fun clickingReceiptRequestsItsDetail() {
+	fun openingReceiptRemembersCurrentPrimaryScreen() {
 		assertEquals(
-			MainScreen.ReceiptDetail("wolt:123"),
-			MainNavigation.reduce(MainScreen.Home, MainIntent.OpenReceipt("wolt:123")),
+			MainScreen.ReceiptDetail("wolt:123", MainScreen.Receipts),
+			MainNavigation.reduce(MainScreen.Receipts, MainIntent.OpenReceipt("wolt:123")),
 		)
 	}
 
 	@Test
-	fun clickingAllItemsOpensGlobalItemList() {
+	fun backFromReceiptReturnsToPreviousPrimaryScreen() {
+		assertEquals(
+			MainScreen.Receipts,
+			MainNavigation.reduce(
+				MainScreen.ReceiptDetail("wolt:123", MainScreen.Receipts),
+				MainIntent.Back,
+			),
+		)
+	}
+
+	@Test
+	fun selectingOverviewOpensOverview() {
+		assertEquals(
+			MainScreen.Overview,
+			MainNavigation.reduce(MainScreen.Settings, MainIntent.OpenOverview),
+		)
+	}
+
+	@Test
+	fun selectingReceiptsOpensReceipts() {
+		assertEquals(
+			MainScreen.Receipts,
+			MainNavigation.reduce(MainScreen.Overview, MainIntent.OpenReceipts),
+		)
+	}
+
+	@Test
+	fun selectingItemsOpensItems() {
 		assertEquals(
 			MainScreen.AllItems,
-			MainNavigation.reduce(MainScreen.Home, MainIntent.OpenAllItems),
+			MainNavigation.reduce(MainScreen.Overview, MainIntent.OpenAllItems),
 		)
 	}
 
 	@Test
-	fun backReturnsHome() {
+	fun selectingSettingsOpensSettings() {
 		assertEquals(
-			MainScreen.Home,
-			MainNavigation.reduce(MainScreen.ReceiptDetail("wolt:123"), MainIntent.Back),
+			MainScreen.Settings,
+			MainNavigation.reduce(MainScreen.Overview, MainIntent.OpenSettings),
 		)
 	}
 
