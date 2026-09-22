@@ -44,6 +44,8 @@ data class ItemListEntry(
 	val subcategory: String?,
 	val quantity: Double,
 	val totalCents: Long,
+	val spendingType: SpendingType? = null,
+	val classificationConfidence: Double? = null,
 )
 
 data class CategoryTotal(
