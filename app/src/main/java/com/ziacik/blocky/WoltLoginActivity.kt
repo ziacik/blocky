@@ -9,15 +9,10 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.activity.ComponentActivity
-import androidx.lifecycle.lifecycleScope
 import com.ziacik.blocky.data.wolt.WoltCookieJar
 import com.ziacik.blocky.data.wolt.WoltSessionStore
 import com.ziacik.blocky.data.wolt.WoltSyncScheduler
-import com.ziacik.blocky.data.wolt.WoltSyncService
 import com.ziacik.blocky.data.wolt.WoltWebNavigation
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class WoltLoginActivity : ComponentActivity() {
 	private lateinit var webView: WebView
@@ -85,31 +80,13 @@ class WoltLoginActivity : ComponentActivity() {
 			}
 
 			WoltSessionStore(this).saveCookies(cookies)
-			connectButton.isEnabled = false
-			connectButton.text = "Načítavam nákupy…"
-
-			lifecycleScope.launch {
-				val result = withContext(Dispatchers.IO) {
-					runCatching { WoltSyncService(applicationContext).sync() }
-				}
-				result.onSuccess { imported ->
-					WoltSyncScheduler.schedulePeriodic(applicationContext)
-					Toast.makeText(
-						this@WoltLoginActivity,
-						"Wolt pripojený. Načítaných objednávok: $imported",
-						Toast.LENGTH_LONG,
-					).show()
-					finish()
-				}.onFailure { error ->
-					connectButton.isEnabled = true
-					connectButton.text = "Skúsiť znova"
-					Toast.makeText(
-						this@WoltLoginActivity,
-						error.message ?: "Wolt sa nepodarilo synchronizovať.",
-						Toast.LENGTH_LONG,
-					).show()
-				}
-			}
+			WoltSyncScheduler.disable(this)
+			Toast.makeText(
+				this,
+				"Wolt pripojený. Zatiaľ nič nesťahujem.",
+				Toast.LENGTH_LONG,
+			).show()
+			finish()
 		}
 
 		webView.loadUrl("https://wolt.com")
