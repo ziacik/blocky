@@ -8,7 +8,8 @@ val categorizationEndpoint = providers.gradleProperty("BLOCKY_CATEGORIZATION_END
 	.getOrElse("")
 val escapedCategorizationEndpoint = categorizationEndpoint
 	.replace("\\", "\\\\")
-	.replace(""", "\\"")
+	.replace("\"", "\\\"")
+val quotedCategorizationEndpoint = "\"" + escapedCategorizationEndpoint + "\""
 
 android {
 	namespace = "com.ziacik.blocky"
@@ -22,7 +23,7 @@ android {
 		versionName = "0.1.0"
 
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-		buildConfigField("String", "CATEGORIZATION_ENDPOINT", ""$escapedCategorizationEndpoint"")
+		buildConfigField("String", "CATEGORIZATION_ENDPOINT", quotedCategorizationEndpoint)
 	}
 
 	buildFeatures {
