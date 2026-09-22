@@ -17,6 +17,30 @@ class WoltOrderParser(
 	private val normalizer: ItemNormalizer,
 	private val zoneId: ZoneId = ZoneId.of("Europe/Bratislava"),
 ) {
+	fun latestPurchaseId(json: String): String? {
+		val root = JSONObject(json)
+		val orders = root.optJSONArray("orders") ?: return null
+		if (orders.length() == 0) return null
+
+		var fallback: String? = null
+		var newestId: String? = null
+		var newestTimestamp = Long.MIN_VALUE
+
+		for (index in 0 until orders.length()) {
+			val order = orders.optJSONObject(index) ?: continue
+			val purchaseId = firstString(order, "purchase_id", "order_id", "id") ?: continue
+			if (fallback == null) fallback = purchaseId
+
+			val timestamp = parseTimestamp(order) ?: continue
+			if (timestamp > newestTimestamp) {
+				newestTimestamp = timestamp
+				newestId = purchaseId
+			}
+		}
+
+		return newestId ?: fallback
+	}
+
 	fun parseHistoryPurchaseIds(json: String, sinceMillis: Long): List<String> {
 		val root = JSONObject(json)
 		val orders = root.optJSONArray("orders") ?: JSONArray()
