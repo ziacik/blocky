@@ -85,6 +85,54 @@ class BlockyDatabaseClassificationTest {
 		assertEquals(ClassificationSource.USER, loaded.classificationSource)
 	}
 
+	@Test
+	fun findsOnlyReceiptsThatStillNeedClassification() {
+		database.save(
+			Receipt(
+				id = "pending",
+				merchant = "Lidl",
+				issuedAt = 1L,
+				totalCents = 100L,
+				items = listOf(
+					ReceiptItem(
+						originalName = "ROHLIK",
+						canonicalName = "ROHLIK",
+						category = "Nezaradené",
+						subcategory = null,
+						quantity = 1.0,
+						totalCents = 100L,
+						vatRate = null,
+					),
+				),
+				rawJson = "{}",
+			),
+		)
+		database.save(
+			Receipt(
+				id = "classified",
+				merchant = "Lidl",
+				issuedAt = 2L,
+				totalCents = 100L,
+				items = listOf(
+					ReceiptItem(
+						originalName = "ROHLIK",
+						canonicalName = "Biely rožok",
+						category = "Potraviny",
+						subcategory = "Pečivo",
+						quantity = 1.0,
+						totalCents = 100L,
+						vatRate = null,
+						spendingType = SpendingType.ESSENTIAL,
+						classificationSource = ClassificationSource.AI,
+					),
+				),
+				rawJson = "{}",
+			),
+		)
+
+		assertEquals(listOf("pending"), database.receiptIdsNeedingClassification())
+	}
+
 	private fun receipt(
 		items: List<ReceiptItem> = listOf(item("MILKA OREO", "Sladkosti")),
 	) = Receipt(

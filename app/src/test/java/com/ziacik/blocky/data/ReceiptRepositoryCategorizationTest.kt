@@ -3,6 +3,7 @@ package com.ziacik.blocky.data
 import com.ziacik.blocky.categorization.ReceiptCategorizer
 import com.ziacik.blocky.categorization.ReceiptIngestor
 import com.ziacik.blocky.model.Receipt
+import com.ziacik.blocky.model.ClassificationSource
 import com.ziacik.blocky.model.ReceiptItem
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -53,6 +54,37 @@ class ReceiptRepositoryCategorizationTest {
 		repository.import("qr")
 
 		assertEquals("Potraviny", database.receipt("receipt-1")!!.items.single().category)
+	}
+
+	@Test
+	fun categorizesAlreadyStoredUnclassifiedReceipts() {
+		database.save(receipt("Nezaradené"))
+		val categorizer = object : ReceiptCategorizer {
+			override fun categorize(receipt: Receipt) = receipt.copy(
+				items = receipt.items.map {
+					it.copy(
+						category = "Potraviny",
+						subcategory = "Pečivo",
+						classificationSource = ClassificationSource.AI,
+					)
+				},
+			)
+		}
+		val repository = ReceiptRepository(
+			client = object : ReceiptLookupClient {
+				override fun findReceipt(qrValue: String) = error("not used")
+			},
+			parser = object : ReceiptParser {
+				override fun parse(json: String) = error("not used")
+			},
+			database = database,
+			ingestor = ReceiptIngestor(categorizer, database),
+		)
+
+		val categorized = repository.categorizePending()
+
+		assertEquals(1, categorized)
+		assertEquals("Pečivo", database.receipt("receipt-1")!!.items.single().subcategory)
 	}
 
 	private fun receipt(category: String) = Receipt(
