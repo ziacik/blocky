@@ -53,6 +53,16 @@ class ReceiptRepository(
 		return checkNotNull(database.receipt(receiptId)) { "Bloček sa nenašiel." }
 	}
 
+	fun categorizePending(limit: Int = 50): Int {
+		var categorized = 0
+		database.receiptIdsNeedingClassification(limit).forEach { receiptId ->
+			val receipt = database.receipt(receiptId) ?: return@forEach
+			ingestor.ingest(receipt)
+			categorized++
+		}
+		return categorized
+	}
+
 	fun snapshot(): RepositorySnapshot = RepositorySnapshot(
 		totalCents = database.totalCents(),
 		receipts = database.receiptSummaries(),

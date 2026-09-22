@@ -62,6 +62,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
 	init {
 		refresh()
+		if (BuildConfig.CATEGORIZATION_ENDPOINT.isNotBlank()) {
+			categorizePending()
+		}
 	}
 
 	fun importReceipt(qrValue: String) {
@@ -177,6 +180,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 					)
 				}
 			}
+		}
+	}
+
+	private fun categorizePending() {
+		viewModelScope.launch {
+			val snapshot = withContext(Dispatchers.IO) {
+				repository.categorizePending()
+				repository.snapshot()
+			}
+			applySnapshot(snapshot)
 		}
 	}
 

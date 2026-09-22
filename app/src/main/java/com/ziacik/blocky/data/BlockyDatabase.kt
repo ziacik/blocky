@@ -250,6 +250,28 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 		}
 	}
 
+	fun receiptIdsNeedingClassification(limit: Int = 50): List<String> = readableDatabase.rawQuery(
+		"""
+		SELECT r.receipt_id
+		FROM receipts r
+		WHERE EXISTS (
+			SELECT 1
+			FROM items i
+			WHERE i.receipt_id = r.receipt_id
+			  AND (i.classification_source IS NULL OR i.category = 'Nezaradené')
+		)
+		ORDER BY r.issued_at DESC
+		LIMIT ?
+		""".trimIndent(),
+		arrayOf(limit.toString()),
+	).use { cursor ->
+		buildList {
+			while (cursor.moveToNext()) {
+				add(cursor.getString(0))
+			}
+		}
+	}
+
 	fun receiptSummaries(limit: Int = 20): List<ReceiptSummary> = readableDatabase.rawQuery(
 		"SELECT receipt_id, merchant, issued_at, total_cents FROM receipts ORDER BY issued_at DESC LIMIT ?",
 		arrayOf(limit.toString()),
