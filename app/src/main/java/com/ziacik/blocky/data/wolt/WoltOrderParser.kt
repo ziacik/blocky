@@ -55,6 +55,29 @@ class WoltOrderParser(
 		return newest ?: fallback
 	}
 
+	fun historyOrdersSince(json: String, sinceMillis: Long): List<WoltHistoryOrder> {
+		val root = JSONObject(json)
+		val orders = root.optJSONArray("orders") ?: JSONArray()
+
+		return buildList {
+			for (index in 0 until orders.length()) {
+				val order = orders.optJSONObject(index) ?: continue
+				val purchaseId = firstString(order, "purchase_id", "order_id", "id") ?: continue
+				val issuedAt = parseTimestamp(order)
+				if (issuedAt != null && issuedAt < sinceMillis) {
+					continue
+				}
+				add(
+					WoltHistoryOrder(
+						purchaseId = purchaseId,
+						issuedAt = issuedAt,
+						merchant = firstString(order, "venue_name", "merchant_name"),
+					)
+				)
+			}
+		}
+	}
+
 	fun parseHistoryPurchaseIds(json: String, sinceMillis: Long): List<String> {
 		val root = JSONObject(json)
 		val orders = root.optJSONArray("orders") ?: JSONArray()
