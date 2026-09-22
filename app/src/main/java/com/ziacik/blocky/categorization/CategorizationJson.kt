@@ -30,10 +30,11 @@ object CategorizationJson {
 			for (index in 0 until items.length()) {
 				val item = items.getJSONObject(index)
 				val category = item.getString("category")
-				val subcategory = if (item.isNull("subcategory")) {
-					null
-				} else {
-					item.getString("subcategory")
+				require(item.has("subcategory") && !item.isNull("subcategory")) {
+					"subcategory is required"
+				}
+				val subcategory = item.getString("subcategory").also {
+					require(it.isNotBlank()) { "subcategory must not be blank" }
 				}
 				ExpenseTaxonomy.requireValid(category, subcategory)
 				val confidence = item.getDouble("confidence")
