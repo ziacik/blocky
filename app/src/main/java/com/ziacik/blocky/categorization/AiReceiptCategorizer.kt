@@ -28,10 +28,14 @@ interface CategorizationClient {
 	fun categorize(request: CategorizationRequest): List<CategorizedItem>
 }
 
+interface ReceiptCategorizer {
+	fun categorize(receipt: Receipt): Receipt
+}
+
 class AiReceiptCategorizer(
 	private val client: CategorizationClient,
-) {
-	fun categorize(receipt: Receipt): Receipt {
+) : ReceiptCategorizer {
+	override fun categorize(receipt: Receipt): Receipt {
 		if (receipt.items.isEmpty()) return receipt
 
 		val request = CategorizationRequest(
