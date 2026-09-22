@@ -7,6 +7,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,10 +20,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.BugReport
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.QrCodeScanner
+import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -29,14 +40,18 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -45,12 +60,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
@@ -69,30 +84,11 @@ import com.ziacik.blocky.ui.MainUiState
 import com.ziacik.blocky.ui.MainViewModel
 import com.ziacik.blocky.ui.WoltAction
 import com.ziacik.blocky.ui.WoltControls
+import com.ziacik.blocky.ui.theme.BlockyTheme
 import java.text.DateFormat
 import java.text.NumberFormat
 import java.util.Date
 import java.util.Locale
-
-private val BlockyColors = lightColorScheme(
-	primary = Color(0xFF5D315E),
-	onPrimary = Color.White,
-	primaryContainer = Color(0xFFF0DFEF),
-	onPrimaryContainer = Color(0xFF311733),
-	secondary = Color(0xFFB6533F),
-	onSecondary = Color.White,
-	secondaryContainer = Color(0xFFFFE1D8),
-	onSecondaryContainer = Color(0xFF4A170D),
-	tertiary = Color(0xFF76603D),
-	tertiaryContainer = Color(0xFFF4E3BD),
-	background = Color(0xFFF7F3EE),
-	onBackground = Color(0xFF261F25),
-	surface = Color(0xFFFFFCF8),
-	onSurface = Color(0xFF261F25),
-	surfaceVariant = Color(0xFFEDE5E7),
-	onSurfaceVariant = Color(0xFF635A60),
-	outline = Color(0xFF8A7F85),
-)
 
 class MainActivity : ComponentActivity() {
 	private val viewModel: MainViewModel by viewModels()
@@ -112,48 +108,45 @@ class MainActivity : ComponentActivity() {
 		)
 
 		setContent {
-			MaterialTheme(colorScheme = BlockyColors) {
-				Surface(
-					modifier = Modifier.fillMaxSize(),
-					color = MaterialTheme.colorScheme.background,
-				) {
-					val state by viewModel.state.collectAsState()
-					BackHandler(enabled = state.screen != MainScreen.Home) {
-						viewModel.back()
-					}
-					when (state.screen) {
-						MainScreen.Home -> BlockyHome(
-							state = state,
-							onScan = {
-								scanner.startScan()
-									.addOnSuccessListener { barcode ->
-										barcode.rawValue?.let(viewModel::importReceipt)
-											?: viewModel.showMessage("QR kód neobsahuje text.")
-									}
-									.addOnFailureListener { error ->
-										viewModel.showMessage(error.message ?: "Skenovanie zlyhalo.")
-									}
-							},
-							onConnectWolt = {
-								startActivity(Intent(this, WoltLoginActivity::class.java))
-							},
-							onCurrentMonthWolt = viewModel::downloadCurrentMonthWoltOrders,
-							onClearWoltDiagnostics = viewModel::clearWoltDiagnostics,
-							onReceipt = viewModel::openReceipt,
-							onAllItems = viewModel::openAllItems,
-						)
+			BlockyTheme {
+				val state by viewModel.state.collectAsState()
 
-						MainScreen.AllItems -> AllItemsScreen(
-							state = state,
-							onBack = viewModel::back,
-							onReceipt = viewModel::openReceipt,
-						)
+				BackHandler(enabled = state.screen != MainScreen.Home) {
+					viewModel.back()
+				}
 
-						is MainScreen.ReceiptDetail -> ReceiptDetailScreen(
-							state = state,
-							onBack = viewModel::back,
-						)
-					}
+				when (state.screen) {
+					MainScreen.Home -> BlockyHome(
+						state = state,
+						onScan = {
+							scanner.startScan()
+								.addOnSuccessListener { barcode ->
+									barcode.rawValue?.let(viewModel::importReceipt)
+										?: viewModel.showMessage("QR kód neobsahuje text.")
+								}
+								.addOnFailureListener { error ->
+									viewModel.showMessage(error.message ?: "Skenovanie zlyhalo.")
+								}
+						},
+						onConnectWolt = {
+							startActivity(Intent(this, WoltLoginActivity::class.java))
+						},
+						onCurrentMonthWolt = viewModel::downloadCurrentMonthWoltOrders,
+						onClearWoltDiagnostics = viewModel::clearWoltDiagnostics,
+						onReceipt = viewModel::openReceipt,
+						onAllItems = viewModel::openAllItems,
+					)
+
+					MainScreen.AllItems -> AllItemsScreen(
+						state = state,
+						onBack = viewModel::back,
+						onReceipt = viewModel::openReceipt,
+					)
+
+					is MainScreen.ReceiptDetail -> ReceiptDetailScreen(
+						state = state,
+						onBack = viewModel::back,
+					)
 				}
 			}
 		}
@@ -165,6 +158,7 @@ class MainActivity : ComponentActivity() {
 	}
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BlockyHome(
 	state: MainUiState,
@@ -175,49 +169,42 @@ private fun BlockyHome(
 	onReceipt: (String) -> Unit,
 	onAllItems: () -> Unit,
 ) {
-	var overflowExpanded by remember { mutableStateOf(false) }
+	var menuExpanded by remember { mutableStateOf(false) }
 	var overlay by remember { mutableStateOf(HomeOverlay.None) }
 
 	Scaffold(
 		containerColor = MaterialTheme.colorScheme.background,
-	) { innerPadding ->
-		LazyColumn(
-			modifier = Modifier
-				.fillMaxSize()
-				.padding(innerPadding),
-			contentPadding = PaddingValues(start = 20.dp, top = 14.dp, end = 20.dp, bottom = 28.dp),
-			verticalArrangement = Arrangement.spacedBy(16.dp),
-		) {
-			item {
-				Row(
-					modifier = Modifier.fillMaxWidth(),
-					verticalAlignment = Alignment.Top,
-				) {
-					Column(modifier = Modifier.weight(1f)) {
-						Text(
-							"Bločky",
-							style = MaterialTheme.typography.headlineLarge,
-							fontWeight = FontWeight.Black,
-						)
-						Text(
-							"Čo presne žerie tvoje peniaze.",
-							style = MaterialTheme.typography.bodyLarge,
-							color = MaterialTheme.colorScheme.onSurfaceVariant,
-						)
-					}
+		topBar = {
+			TopAppBar(
+				title = {
+					Text(
+						"Bločky",
+						style = MaterialTheme.typography.titleLarge,
+						fontWeight = FontWeight.Bold,
+					)
+				},
+				colors = TopAppBarDefaults.topAppBarColors(
+					containerColor = MaterialTheme.colorScheme.background,
+				),
+				actions = {
 					Box {
-						TextButton(onClick = { overflowExpanded = true }) {
-							Text(
-								"•••",
-								style = MaterialTheme.typography.titleLarge,
-								color = MaterialTheme.colorScheme.onSurfaceVariant,
+						IconButton(onClick = { menuExpanded = true }) {
+							Icon(
+								imageVector = Icons.Rounded.MoreVert,
+								contentDescription = "Menu",
 							)
 						}
 						DropdownMenu(
-							expanded = overflowExpanded,
-							onDismissRequest = { overflowExpanded = false },
+							expanded = menuExpanded,
+							onDismissRequest = { menuExpanded = false },
 						) {
 							DropdownMenuItem(
+								leadingIcon = {
+									Icon(
+										imageVector = Icons.Rounded.BugReport,
+										contentDescription = null,
+									)
+								},
 								text = {
 									Text(
 										if (state.woltDiagnostics.isEmpty()) {
@@ -228,7 +215,7 @@ private fun BlockyHome(
 									)
 								},
 								onClick = {
-									overflowExpanded = false
+									menuExpanded = false
 									overlay = HomeOverlayNavigation.reduce(
 										overlay,
 										HomeOverlayIntent.OpenDiagnostics,
@@ -237,72 +224,95 @@ private fun BlockyHome(
 							)
 						}
 					}
-				}
-			}
-
+				},
+			)
+		},
+	) { innerPadding ->
+		LazyColumn(
+			modifier = Modifier
+				.fillMaxSize()
+				.padding(innerPadding),
+			contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 32.dp),
+			verticalArrangement = Arrangement.spacedBy(24.dp),
+		) {
 			item {
-				Card(
-					modifier = Modifier.fillMaxWidth(),
-					shape = RoundedCornerShape(28.dp),
-					colors = CardDefaults.cardColors(
-						containerColor = MaterialTheme.colorScheme.primaryContainer,
-					),
+				Column(
+					modifier = Modifier.padding(top = 8.dp),
+					verticalArrangement = Arrangement.spacedBy(4.dp),
 				) {
-					Column(
-						modifier = Modifier.padding(horizontal = 22.dp, vertical = 24.dp),
-						verticalArrangement = Arrangement.spacedBy(6.dp),
+					Text(
+						"Výdavky celkom",
+						style = MaterialTheme.typography.bodyMedium,
+						color = MaterialTheme.colorScheme.onSurfaceVariant,
+					)
+					Text(
+						money(state.totalCents),
+						style = MaterialTheme.typography.headlineLarge.copy(
+							fontSize = 38.sp,
+							lineHeight = 44.sp,
+						),
+						fontWeight = FontWeight.Bold,
+					)
+					Row(
+						horizontalArrangement = Arrangement.spacedBy(8.dp),
+						verticalAlignment = Alignment.CenterVertically,
 					) {
 						Text(
-							"SPOLU EVIDOVANÉ",
-							style = MaterialTheme.typography.labelMedium,
-							fontWeight = FontWeight.Bold,
-							color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.68f),
-						)
-						Text(
-							money(state.totalCents),
-							style = MaterialTheme.typography.displaySmall,
-							fontWeight = FontWeight.Black,
-							color = MaterialTheme.colorScheme.onPrimaryContainer,
-						)
-						Text(
-							"${state.receipts.size} bločkov v evidencii",
+							"${state.receipts.size} bločkov",
 							style = MaterialTheme.typography.bodyMedium,
-							color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.74f),
+							color = MaterialTheme.colorScheme.onSurfaceVariant,
 						)
+						if (state.woltConnected) {
+							Text(
+								"•",
+								color = MaterialTheme.colorScheme.outline,
+							)
+							Text(
+								"Wolt pripojený",
+								style = MaterialTheme.typography.bodyMedium,
+								color = MaterialTheme.colorScheme.onSurfaceVariant,
+							)
+						}
 					}
 				}
 			}
 
 			item {
-				Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+				val woltAction = WoltControls.actions(
+					connected = state.woltConnected,
+					busy = state.woltBusy,
+				).firstOrNull()
+
+				Row(
+					modifier = Modifier.fillMaxWidth(),
+					horizontalArrangement = Arrangement.spacedBy(10.dp),
+				) {
 					Button(
 						onClick = onScan,
 						enabled = !state.loading,
 						modifier = Modifier
-							.fillMaxWidth()
-							.height(54.dp),
-						shape = RoundedCornerShape(18.dp),
+							.weight(1f)
+							.height(50.dp),
+						shape = RoundedCornerShape(10.dp),
 					) {
 						if (state.loading) {
 							CircularProgressIndicator(
-								modifier = Modifier.height(20.dp),
+								modifier = Modifier.size(18.dp),
 								strokeWidth = 2.dp,
 								color = MaterialTheme.colorScheme.onPrimary,
 							)
-							Spacer(modifier = Modifier.padding(5.dp))
+						} else {
+							Icon(
+								imageVector = Icons.Rounded.QrCodeScanner,
+								contentDescription = null,
+								modifier = Modifier.size(20.dp),
+							)
 						}
-						Text(
-							if (state.loading) "Načítavam…" else "Naskenovať QR bločku",
-							fontWeight = FontWeight.Bold,
-						)
+						Spacer(modifier = Modifier.width(8.dp))
+						Text("Skenovať")
 					}
 
-					val woltAction = WoltControls.actions(
-						connected = state.woltConnected,
-						busy = state.woltBusy,
-					).firstOrNull()
-
-					FilledTonalButton(
+					OutlinedButton(
 						onClick = when (woltAction) {
 							WoltAction.Connect -> onConnectWolt
 							WoltAction.CurrentMonth -> onCurrentMonthWolt
@@ -310,17 +320,27 @@ private fun BlockyHome(
 						},
 						enabled = !state.loading && !state.woltBusy,
 						modifier = Modifier
-							.fillMaxWidth()
-							.height(52.dp),
-						shape = RoundedCornerShape(18.dp),
+							.weight(1f)
+							.height(50.dp),
+						shape = RoundedCornerShape(10.dp),
+						border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
 					) {
+						if (state.woltBusy) {
+							CircularProgressIndicator(
+								modifier = Modifier.size(18.dp),
+								strokeWidth = 2.dp,
+							)
+						} else {
+							Icon(
+								imageVector = Icons.Rounded.Sync,
+								contentDescription = null,
+								modifier = Modifier.size(20.dp),
+							)
+						}
+						Spacer(modifier = Modifier.width(8.dp))
 						Text(
-							when {
-								state.woltBusy -> "Synchronizujem Wolt…"
-								woltAction == WoltAction.Connect -> "Prepojiť Wolt"
-								else -> "Synchronizovať Wolt · tento mesiac"
-							},
-							fontWeight = FontWeight.SemiBold,
+							if (woltAction == WoltAction.Connect) "Pripojiť Wolt" else "Sync Wolt",
+							maxLines = 1,
 						)
 					}
 				}
@@ -330,12 +350,12 @@ private fun BlockyHome(
 				item {
 					Surface(
 						modifier = Modifier.fillMaxWidth(),
-						shape = RoundedCornerShape(18.dp),
-						color = MaterialTheme.colorScheme.tertiaryContainer,
+						shape = RoundedCornerShape(10.dp),
+						color = MaterialTheme.colorScheme.surfaceVariant,
 					) {
 						Text(
 							message,
-							modifier = Modifier.padding(horizontal = 16.dp, vertical = 13.dp),
+							modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
 							style = MaterialTheme.typography.bodyMedium,
 						)
 					}
@@ -343,19 +363,18 @@ private fun BlockyHome(
 			}
 
 			if (state.categories.isNotEmpty()) {
-				item { SectionTitle("Najväčšie kategórie", "Kam odteká najviac") }
 				item {
-					Card(
-						modifier = Modifier.fillMaxWidth(),
-						shape = RoundedCornerShape(22.dp),
-						colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-					) {
-						Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-							state.categories.take(5).forEachIndexed { index, category ->
-								CategoryRow(category)
-								if (index != minOf(4, state.categories.lastIndex)) {
-									HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
-								}
+					SectionHeader(title = "Kategórie")
+				}
+				item {
+					SectionSurface {
+						state.categories.take(5).forEachIndexed { index, category ->
+							CategoryRow(
+								category = category,
+								totalCents = state.totalCents,
+							)
+							if (index != minOf(4, state.categories.lastIndex)) {
+								SectionDivider()
 							}
 						}
 					}
@@ -363,40 +382,41 @@ private fun BlockyHome(
 			}
 
 			if (state.products.isNotEmpty()) {
-				item { SectionTitle("Najdrahšie položky", "Top produkty podľa výdavkov") }
 				item {
-					Card(
-						modifier = Modifier.fillMaxWidth(),
-						shape = RoundedCornerShape(22.dp),
-						colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-					) {
-						Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-							state.products.take(5).forEachIndexed { index, product ->
-								ProductRow(product)
-								if (index != minOf(4, state.products.lastIndex)) {
-									HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
-								}
-							}
-						}
-					}
+					SectionHeader(
+						title = "Najdrahšie položky",
+						action = "Všetky",
+						onAction = onAllItems,
+					)
 				}
 				item {
-					TextButton(
-						onClick = onAllItems,
-						modifier = Modifier.fillMaxWidth(),
-					) {
-						Text("Zobraziť všetky položky")
+					SectionSurface {
+						state.products.take(5).forEachIndexed { index, product ->
+							ProductRow(product)
+							if (index != minOf(4, state.products.lastIndex)) {
+								SectionDivider()
+							}
+						}
 					}
 				}
 			}
 
 			if (state.receipts.isNotEmpty()) {
-				item { SectionTitle("Posledné bločky", "Najnovšie nákupy") }
-				items(state.receipts) { receipt ->
-					ReceiptRow(
-						receipt = receipt,
-						onClick = { onReceipt(receipt.id) },
-					)
+				item {
+					SectionHeader(title = "Posledné bločky")
+				}
+				item {
+					SectionSurface {
+						state.receipts.forEachIndexed { index, receipt ->
+							ReceiptRow(
+								receipt = receipt,
+								onClick = { onReceipt(receipt.id) },
+							)
+							if (index != state.receipts.lastIndex) {
+								SectionDivider()
+							}
+						}
+					}
 				}
 			}
 		}
@@ -417,6 +437,55 @@ private fun BlockyHome(
 }
 
 @Composable
+private fun SectionSurface(content: @Composable () -> Unit) {
+	Surface(
+		modifier = Modifier.fillMaxWidth(),
+		shape = RoundedCornerShape(12.dp),
+		color = MaterialTheme.colorScheme.surface,
+		border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+	) {
+		Column {
+			content()
+		}
+	}
+}
+
+@Composable
+private fun SectionHeader(
+	title: String,
+	action: String? = null,
+	onAction: (() -> Unit)? = null,
+) {
+	Row(
+		modifier = Modifier.fillMaxWidth(),
+		verticalAlignment = Alignment.CenterVertically,
+	) {
+		Text(
+			title,
+			modifier = Modifier.weight(1f),
+			style = MaterialTheme.typography.titleMedium,
+			fontWeight = FontWeight.SemiBold,
+		)
+		if (action != null && onAction != null) {
+			TextButton(
+				onClick = onAction,
+				contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+			) {
+				Text(action)
+			}
+		}
+	}
+}
+
+@Composable
+private fun SectionDivider() {
+	HorizontalDivider(
+		modifier = Modifier.padding(horizontal = 14.dp),
+		color = MaterialTheme.colorScheme.outlineVariant,
+	)
+}
+
+@Composable
 private fun DiagnosticsDialog(
 	lines: List<String>,
 	onClear: () -> Unit,
@@ -425,19 +494,15 @@ private fun DiagnosticsDialog(
 	AlertDialog(
 		onDismissRequest = onDismiss,
 		title = {
-			Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-				Text("Wolt diagnostika", fontWeight = FontWeight.Bold)
-				Text(
-					"${lines.size} záznamov",
-					style = MaterialTheme.typography.bodySmall,
-					color = MaterialTheme.colorScheme.onSurfaceVariant,
-				)
-			}
+			Text(
+				"Wolt diagnostika",
+				style = MaterialTheme.typography.titleLarge,
+			)
 		},
 		text = {
 			if (lines.isEmpty()) {
 				Text(
-					"Zatiaľ tu nič nie je.",
+					"Žiadne diagnostické záznamy.",
 					color = MaterialTheme.colorScheme.onSurfaceVariant,
 				)
 			} else {
@@ -457,7 +522,7 @@ private fun DiagnosticsDialog(
 		},
 		confirmButton = {
 			TextButton(onClick = onDismiss) {
-				Text("Hotovo")
+				Text("Zavrieť")
 			}
 		},
 		dismissButton = {
@@ -470,6 +535,7 @@ private fun DiagnosticsDialog(
 	)
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ReceiptDetailScreen(
 	state: MainUiState,
@@ -477,20 +543,36 @@ private fun ReceiptDetailScreen(
 ) {
 	Scaffold(
 		containerColor = MaterialTheme.colorScheme.background,
+		topBar = {
+			TopAppBar(
+				title = { Text("Bloček") },
+				navigationIcon = {
+					IconButton(onClick = onBack) {
+						Icon(
+							imageVector = Icons.Rounded.ArrowBack,
+							contentDescription = "Späť",
+						)
+					}
+				},
+				colors = TopAppBarDefaults.topAppBarColors(
+					containerColor = MaterialTheme.colorScheme.background,
+				),
+			)
+		},
 	) { innerPadding ->
 		LazyColumn(
 			modifier = Modifier
 				.fillMaxSize()
 				.padding(innerPadding),
-			contentPadding = PaddingValues(20.dp),
-			verticalArrangement = Arrangement.spacedBy(14.dp),
+			contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 32.dp),
+			verticalArrangement = Arrangement.spacedBy(22.dp),
 		) {
-			item { BackButton(onBack) }
-
 			if (state.loading && state.selectedReceipt == null) {
 				item {
 					Row(
-						modifier = Modifier.fillMaxWidth(),
+						modifier = Modifier
+							.fillMaxWidth()
+							.padding(top = 48.dp),
 						horizontalArrangement = Arrangement.Center,
 					) {
 						CircularProgressIndicator()
@@ -499,18 +581,17 @@ private fun ReceiptDetailScreen(
 			}
 
 			state.selectedReceipt?.let { receipt ->
-				item { ReceiptHeader(receipt) }
-				item { SectionTitle("Položky", "${receipt.items.size} položiek") }
 				item {
-					Card(
-						modifier = Modifier.fillMaxWidth(),
-						shape = RoundedCornerShape(22.dp),
-					) {
-						Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+					ReceiptHeader(receipt)
+				}
+				item {
+					Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+						SectionHeader(title = "Položky")
+						SectionSurface {
 							receipt.items.forEachIndexed { index, item ->
 								ReceiptItemRow(item)
 								if (index != receipt.items.lastIndex) {
-									HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+									SectionDivider()
 								}
 							}
 						}
@@ -525,6 +606,7 @@ private fun ReceiptDetailScreen(
 	}
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AllItemsScreen(
 	state: MainUiState,
@@ -533,21 +615,36 @@ private fun AllItemsScreen(
 ) {
 	Scaffold(
 		containerColor = MaterialTheme.colorScheme.background,
+		topBar = {
+			TopAppBar(
+				title = { Text("Všetky položky") },
+				navigationIcon = {
+					IconButton(onClick = onBack) {
+						Icon(
+							imageVector = Icons.Rounded.ArrowBack,
+							contentDescription = "Späť",
+						)
+					}
+				},
+				colors = TopAppBarDefaults.topAppBarColors(
+					containerColor = MaterialTheme.colorScheme.background,
+				),
+			)
+		},
 	) { innerPadding ->
 		LazyColumn(
 			modifier = Modifier
 				.fillMaxSize()
 				.padding(innerPadding),
-			contentPadding = PaddingValues(20.dp),
-			verticalArrangement = Arrangement.spacedBy(10.dp),
+			contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 32.dp),
+			verticalArrangement = Arrangement.spacedBy(8.dp),
 		) {
-			item { BackButton(onBack) }
-			item { SectionTitle("Všetky položky", "${state.allItems.size} položiek") }
-
 			if (state.loading && state.allItems.isEmpty()) {
 				item {
 					Row(
-						modifier = Modifier.fillMaxWidth(),
+						modifier = Modifier
+							.fillMaxWidth()
+							.padding(top = 48.dp),
 						horizontalArrangement = Arrangement.Center,
 					) {
 						CircularProgressIndicator()
@@ -566,73 +663,71 @@ private fun AllItemsScreen(
 }
 
 @Composable
-private fun BackButton(onBack: () -> Unit) {
-	TextButton(onClick = onBack) {
-		Text("‹ Späť", fontWeight = FontWeight.SemiBold)
-	}
-}
-
-@Composable
 private fun ReceiptHeader(receipt: Receipt) {
-	Card(
-		modifier = Modifier.fillMaxWidth(),
-		shape = RoundedCornerShape(26.dp),
-		colors = CardDefaults.cardColors(
-			containerColor = MaterialTheme.colorScheme.secondaryContainer,
-		),
+	Column(
+		modifier = Modifier.padding(top = 8.dp),
+		verticalArrangement = Arrangement.spacedBy(5.dp),
 	) {
-		Column(
-			modifier = Modifier.padding(22.dp),
-			verticalArrangement = Arrangement.spacedBy(5.dp),
-		) {
-			Text(
-				receipt.merchant,
-				style = MaterialTheme.typography.headlineMedium,
-				fontWeight = FontWeight.Black,
-			)
-			Text(
-				DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
-					.format(Date(receipt.issuedAt)),
-				style = MaterialTheme.typography.bodyMedium,
-				color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.72f),
-			)
-			Spacer(modifier = Modifier.height(4.dp))
-			Text(
-				money(receipt.totalCents),
-				style = MaterialTheme.typography.displaySmall,
-				fontWeight = FontWeight.Black,
-			)
-		}
-	}
-}
-
-@Composable
-private fun SectionTitle(
-	value: String,
-	subtitle: String? = null,
-) {
-	Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
 		Text(
-			value,
-			style = MaterialTheme.typography.titleLarge,
+			receipt.merchant,
+			style = MaterialTheme.typography.headlineMedium,
+			fontWeight = FontWeight.SemiBold,
+		)
+		Text(
+			DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
+				.format(Date(receipt.issuedAt)),
+			style = MaterialTheme.typography.bodyMedium,
+			color = MaterialTheme.colorScheme.onSurfaceVariant,
+		)
+		Spacer(modifier = Modifier.height(8.dp))
+		Text(
+			money(receipt.totalCents),
+			style = MaterialTheme.typography.headlineLarge,
 			fontWeight = FontWeight.Bold,
 		)
-		subtitle?.let {
+	}
+}
+
+@Composable
+private fun CategoryRow(
+	category: CategoryTotal,
+	totalCents: Long,
+) {
+	val percentage = if (totalCents > 0) {
+		(category.totalCents * 100.0 / totalCents).coerceIn(0.0, 100.0)
+	} else {
+		0.0
+	}
+
+	Row(
+		modifier = Modifier
+			.fillMaxWidth()
+			.padding(horizontal = 14.dp, vertical = 13.dp),
+		verticalAlignment = Alignment.CenterVertically,
+	) {
+		Column(
+			modifier = Modifier
+				.weight(1f)
+				.padding(end = 16.dp),
+			verticalArrangement = Arrangement.spacedBy(2.dp),
+		) {
 			Text(
-				it,
+				category.category,
+				style = MaterialTheme.typography.bodyLarge,
+				fontWeight = FontWeight.Medium,
+			)
+			Text(
+				String.format(Locale("sk", "SK"), "%.0f %% z celku", percentage),
 				style = MaterialTheme.typography.bodySmall,
 				color = MaterialTheme.colorScheme.onSurfaceVariant,
 			)
 		}
+		Text(
+			money(category.totalCents),
+			fontWeight = FontWeight.SemiBold,
+			textAlign = TextAlign.End,
+		)
 	}
-}
-
-@Composable
-private fun CategoryRow(category: CategoryTotal) {
-	PriceRow(
-		title = category.category,
-		priceCents = category.totalCents,
-	)
 }
 
 @Composable
@@ -651,7 +746,7 @@ private fun PriceRow(
 	Row(
 		modifier = Modifier
 			.fillMaxWidth()
-			.padding(vertical = 13.dp),
+			.padding(horizontal = 14.dp, vertical = 13.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
 		Text(
@@ -661,14 +756,15 @@ private fun PriceRow(
 				.padding(end = 16.dp),
 			maxLines = 2,
 			overflow = TextOverflow.Ellipsis,
+			style = MaterialTheme.typography.bodyLarge,
 			fontWeight = FontWeight.Medium,
 		)
 		Text(
 			text = money(priceCents),
-			modifier = Modifier.widthIn(min = 88.dp),
+			modifier = Modifier.widthIn(min = 82.dp),
 			textAlign = TextAlign.End,
 			maxLines = 1,
-			fontWeight = FontWeight.Bold,
+			fontWeight = FontWeight.SemiBold,
 		)
 	}
 }
@@ -678,45 +774,47 @@ private fun ReceiptRow(
 	receipt: ReceiptSummary,
 	onClick: () -> Unit,
 ) {
-	Card(
-		onClick = onClick,
-		modifier = Modifier.fillMaxWidth(),
-		shape = RoundedCornerShape(22.dp),
-		colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-		elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+	Row(
+		modifier = Modifier
+			.fillMaxWidth()
+			.clickable(onClick = onClick)
+			.padding(horizontal = 14.dp, vertical = 13.dp),
+		verticalAlignment = Alignment.CenterVertically,
 	) {
-		Row(
+		Column(
 			modifier = Modifier
-				.padding(horizontal = 17.dp, vertical = 16.dp)
-				.fillMaxWidth(),
-			verticalAlignment = Alignment.CenterVertically,
+				.weight(1f)
+				.padding(end = 12.dp),
+			verticalArrangement = Arrangement.spacedBy(2.dp),
 		) {
-			Column(
-				modifier = Modifier
-					.weight(1f)
-					.padding(end = 16.dp),
-			) {
-				Text(
-					receipt.merchant,
-					fontWeight = FontWeight.Bold,
-					maxLines = 2,
-					overflow = TextOverflow.Ellipsis,
-				)
-				Text(
-					DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
-						.format(Date(receipt.issuedAt)),
-					style = MaterialTheme.typography.bodySmall,
-					color = MaterialTheme.colorScheme.onSurfaceVariant,
-				)
-			}
 			Text(
-				money(receipt.totalCents),
-				modifier = Modifier.widthIn(min = 88.dp),
-				textAlign = TextAlign.End,
+				receipt.merchant,
+				style = MaterialTheme.typography.bodyLarge,
+				fontWeight = FontWeight.Medium,
 				maxLines = 1,
-				fontWeight = FontWeight.Black,
+				overflow = TextOverflow.Ellipsis,
+			)
+			Text(
+				DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+					.format(Date(receipt.issuedAt)),
+				style = MaterialTheme.typography.bodySmall,
+				color = MaterialTheme.colorScheme.onSurfaceVariant,
 			)
 		}
+		Text(
+			money(receipt.totalCents),
+			modifier = Modifier.widthIn(min = 78.dp),
+			textAlign = TextAlign.End,
+			fontWeight = FontWeight.SemiBold,
+		)
+		Icon(
+			imageVector = Icons.Rounded.ChevronRight,
+			contentDescription = null,
+			modifier = Modifier
+				.padding(start = 8.dp)
+				.size(18.dp),
+			tint = MaterialTheme.colorScheme.onSurfaceVariant,
+		)
 	}
 }
 
@@ -725,17 +823,19 @@ private fun ReceiptItemRow(item: ReceiptItem) {
 	Row(
 		modifier = Modifier
 			.fillMaxWidth()
-			.padding(vertical = 12.dp),
+			.padding(horizontal = 14.dp, vertical = 13.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
 		Column(
 			modifier = Modifier
 				.weight(1f)
 				.padding(end = 16.dp),
+			verticalArrangement = Arrangement.spacedBy(2.dp),
 		) {
 			Text(
 				item.originalName,
-				fontWeight = FontWeight.SemiBold,
+				style = MaterialTheme.typography.bodyLarge,
+				fontWeight = FontWeight.Medium,
 				maxLines = 3,
 				overflow = TextOverflow.Ellipsis,
 			)
@@ -747,10 +847,9 @@ private fun ReceiptItemRow(item: ReceiptItem) {
 		}
 		Text(
 			money(item.totalCents),
-			modifier = Modifier.widthIn(min = 88.dp),
+			modifier = Modifier.widthIn(min = 82.dp),
 			textAlign = TextAlign.End,
-			maxLines = 1,
-			fontWeight = FontWeight.Bold,
+			fontWeight = FontWeight.SemiBold,
 		)
 	}
 }
@@ -763,23 +862,29 @@ private fun AllItemRow(
 	Card(
 		onClick = onClick,
 		modifier = Modifier.fillMaxWidth(),
-		shape = RoundedCornerShape(20.dp),
-		colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+		shape = RoundedCornerShape(10.dp),
+		colors = CardDefaults.cardColors(
+			containerColor = MaterialTheme.colorScheme.surface,
+		),
+		border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+		elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
 	) {
 		Row(
 			modifier = Modifier
 				.fillMaxWidth()
-				.padding(16.dp),
+				.padding(horizontal = 14.dp, vertical = 13.dp),
 			verticalAlignment = Alignment.CenterVertically,
 		) {
 			Column(
 				modifier = Modifier
 					.weight(1f)
-					.padding(end = 16.dp),
+					.padding(end = 12.dp),
+				verticalArrangement = Arrangement.spacedBy(2.dp),
 			) {
 				Text(
 					item.originalName,
-					fontWeight = FontWeight.SemiBold,
+					style = MaterialTheme.typography.bodyLarge,
+					fontWeight = FontWeight.Medium,
 					maxLines = 2,
 					overflow = TextOverflow.Ellipsis,
 				)
@@ -799,10 +904,17 @@ private fun AllItemRow(
 			}
 			Text(
 				money(item.totalCents),
-				modifier = Modifier.widthIn(min = 88.dp),
+				modifier = Modifier.widthIn(min = 78.dp),
 				textAlign = TextAlign.End,
-				maxLines = 1,
-				fontWeight = FontWeight.Bold,
+				fontWeight = FontWeight.SemiBold,
+			)
+			Icon(
+				imageVector = Icons.Rounded.ChevronRight,
+				contentDescription = null,
+				modifier = Modifier
+					.padding(start = 8.dp)
+					.size(18.dp),
+				tint = MaterialTheme.colorScheme.onSurfaceVariant,
 			)
 		}
 	}
