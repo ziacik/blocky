@@ -32,6 +32,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -39,7 +40,6 @@ import androidx.compose.ui.unit.dp
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
-import com.ziacik.blocky.data.wolt.WoltSessionStore
 import com.ziacik.blocky.data.wolt.WoltSyncScheduler
 import com.ziacik.blocky.model.CategoryTotal
 import com.ziacik.blocky.model.ItemListEntry
@@ -62,10 +62,7 @@ class MainActivity : ComponentActivity() {
 		super.onCreate(savedInstanceState)
 		enableEdgeToEdge()
 
-		if (WoltSessionStore(this).isConnected()) {
-			WoltSyncScheduler.schedulePeriodic(this)
-			viewModel.syncWolt()
-		}
+		WoltSyncScheduler.disable(this)
 
 		val scanner = GmsBarcodeScanning.getClient(
 			this,
@@ -94,11 +91,12 @@ class MainActivity : ComponentActivity() {
 							},
 							onWolt = {
 								if (state.woltConnected) {
-									viewModel.syncWolt()
+									viewModel.downloadLatestWoltOrder()
 								} else {
 									startActivity(Intent(this, WoltLoginActivity::class.java))
 								}
 							},
+							onClearWoltDiagnostics = viewModel::clearWoltDiagnostics,
 							onReceipt = viewModel::openReceipt,
 							onAllItems = viewModel::openAllItems,
 						)
@@ -130,6 +128,7 @@ private fun BlockyHome(
 	state: MainUiState,
 	onScan: () -> Unit,
 	onWolt: () -> Unit,
+	onClearWoltDiagnostics: () -> Unit,
 	onReceipt: (String) -> Unit,
 	onAllItems: () -> Unit,
 ) {
@@ -173,14 +172,51 @@ private fun BlockyHome(
 			item {
 				Button(
 					onClick = onWolt,
-					enabled = !state.loading,
+					enabled = !state.loading && !state.woltBusy,
 					modifier = Modifier.fillMaxWidth(),
 				) {
-					Text(if (state.woltConnected) "Synchronizovať Wolt" else "Prepojiť Wolt")
+					Text(
+						when {
+							!state.woltConnected -> "Prepojiť Wolt"
+							state.woltBusy -> "Sťahujem jednu objednávku…"
+							else -> "Stiahnuť poslednú Wolt objednávku"
+						}
+					)
 				}
 				state.message?.let {
 					Spacer(modifier = Modifier.height(8.dp))
 					Text(it, style = MaterialTheme.typography.bodyMedium)
+				}
+			}
+			if (state.woltDiagnostics.isNotEmpty()) {
+				item {
+					Card(modifier = Modifier.fillMaxWidth()) {
+						Column(
+							modifier = Modifier.padding(14.dp),
+							verticalArrangement = Arrangement.spacedBy(6.dp),
+						) {
+							Row(
+								modifier = Modifier.fillMaxWidth(),
+								verticalAlignment = Alignment.CenterVertically,
+							) {
+								Text(
+									"Wolt diagnostika",
+									modifier = Modifier.weight(1f),
+									fontWeight = FontWeight.SemiBold,
+								)
+								TextButton(onClick = onClearWoltDiagnostics) {
+									Text("Vymazať")
+								}
+							}
+							state.woltDiagnostics.forEach { line ->
+								Text(
+									text = line,
+									style = MaterialTheme.typography.bodySmall,
+									fontFamily = FontFamily.Monospace,
+								)
+							}
+						}
+					}
 				}
 			}
 			if (state.categories.isNotEmpty()) {
