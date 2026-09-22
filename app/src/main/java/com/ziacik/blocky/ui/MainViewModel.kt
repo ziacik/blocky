@@ -20,11 +20,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 data class MainUiState(
 	val loading: Boolean = false,
+	val woltBusy: Boolean = false,
 	val totalCents: Long = 0,
 	val receipts: List<ReceiptSummary> = emptyList(),
 	val categories: List<CategoryTotal> = emptyList(),
@@ -33,6 +38,7 @@ data class MainUiState(
 	val selectedReceipt: Receipt? = null,
 	val screen: MainScreen = MainScreen.Home,
 	val woltConnected: Boolean = false,
+	val woltDiagnostics: List<String> = emptyList(),
 	val message: String? = null,
 )
 
@@ -72,25 +78,62 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 		}
 	}
 
-	fun syncWolt() {
+	fun downloadLatestWoltOrder() {
+		if (_state.value.woltBusy) return
+
+		_state.update {
+			it.copy(
+				woltBusy = true,
+				woltDiagnostics = emptyList(),
+				message = null,
+			)
+		}
+		addWoltDiagnostic("START: sťahujem iba jednu najnovšiu objednávku")
+
 		viewModelScope.launch {
-			_state.value = _state.value.copy(loading = true, message = null)
 			val result = runCatching {
 				withContext(Dispatchers.IO) {
-					woltSyncService.sync()
-					repository.snapshot()
+					val receipt = woltSyncService.importLatestOrder(::addWoltDiagnostic)
+					receipt to repository.snapshot()
 				}
 			}
-			result.onSuccess { snapshot ->
-				applySnapshot(snapshot, "Wolt synchronizovaný.")
-			}.onFailure { error ->
-				_state.value = _state.value.copy(
-					loading = false,
-					woltConnected = woltSessionStore.isConnected(),
-					message = error.message ?: "Wolt sa nepodarilo synchronizovať.",
+
+			result.onSuccess { (receipt, snapshot) ->
+				if (receipt == null) {
+					addWoltDiagnostic("DONE: nič sa neuložilo")
+				} else {
+					addWoltDiagnostic(
+						"DONE: " + receipt.merchant +
+							", items=" + receipt.items.size +
+							", total=" + receipt.totalCents,
+					)
+				}
+				applySnapshot(
+					snapshot = snapshot,
+					message = if (receipt == null) {
+						"Wolt objednávka sa nenašla."
+					} else {
+						"Wolt objednávka uložená: " + receipt.merchant
+					},
 				)
+				_state.update { it.copy(woltBusy = false) }
+			}.onFailure { error ->
+				addWoltDiagnostic(
+					"FAIL: " + (error.message ?: error::class.java.simpleName),
+				)
+				_state.update {
+					it.copy(
+						woltBusy = false,
+						woltConnected = woltSessionStore.isConnected(),
+						message = error.message ?: "Wolt objednávku sa nepodarilo stiahnuť.",
+					)
+				}
 			}
 		}
+	}
+
+	fun clearWoltDiagnostics() {
+		_state.update { it.copy(woltDiagnostics = emptyList()) }
 	}
 
 	fun openReceipt(receiptId: String) {
@@ -138,15 +181,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 		}
 	}
 
-	private fun applySnapshot(snapshot: RepositorySnapshot, message: String? = _state.value.message) {
-		_state.value = _state.value.copy(
-			loading = false,
-			totalCents = snapshot.totalCents,
-			receipts = snapshot.receipts,
-			categories = snapshot.categories,
-			products = snapshot.products,
-			woltConnected = woltSessionStore.isConnected(),
-			message = message,
-		)
+	private fun addWoltDiagnostic(line: String) {
+		val timestamp = SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
+		_state.update { state ->
+			state.copy(
+				woltDiagnostics = (state.woltDiagnostics + "$timestamp  $line").takeLast(100),
+			)
+		}
+	}
+
+	private fun applySnapshot(
+		snapshot: RepositorySnapshot,
+		message: String? = _state.value.message,
+	) {
+		_state.update {
+			it.copy(
+				loading = false,
+				totalCents = snapshot.totalCents,
+				receipts = snapshot.receipts,
+				categories = snapshot.categories,
+				products = snapshot.products,
+				woltConnected = woltSessionStore.isConnected(),
+				message = message,
+			)
+		}
 	}
 }
