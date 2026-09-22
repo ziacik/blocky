@@ -132,6 +132,47 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 		}
 	}
 
+	fun downloadCurrentMonthWoltOrders() {
+		if (_state.value.woltBusy) return
+
+		_state.update {
+			it.copy(
+				woltBusy = true,
+				woltDiagnostics = emptyList(),
+				message = null,
+			)
+		}
+		addWoltDiagnostic("START: sťahujem všetky objednávky aktuálneho mesiaca")
+
+		viewModelScope.launch {
+			val result = runCatching {
+				withContext(Dispatchers.IO) {
+					val imported = woltSyncService.importCurrentMonth(::addWoltDiagnostic)
+					imported to repository.snapshot()
+				}
+			}
+
+			result.onSuccess { (imported, snapshot) ->
+				applySnapshot(
+					snapshot = snapshot,
+					message = "Wolt: importované objednávky tento mesiac: " + imported,
+				)
+				_state.update { it.copy(woltBusy = false) }
+			}.onFailure { error ->
+				addWoltDiagnostic(
+					"FAIL: " + (error.message ?: error::class.java.simpleName),
+				)
+				_state.update {
+					it.copy(
+						woltBusy = false,
+						woltConnected = woltSessionStore.isConnected(),
+						message = error.message ?: "Wolt objednávky sa nepodarilo stiahnuť.",
+					)
+				}
+			}
+		}
+	}
+
 	fun clearWoltDiagnostics() {
 		_state.update { it.copy(woltDiagnostics = emptyList()) }
 	}
