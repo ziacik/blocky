@@ -75,7 +75,6 @@ import com.ziacik.blocky.ui.MainViewModel
 import com.ziacik.blocky.ui.theme.BlockyTheme
 import java.text.DateFormat
 import java.text.NumberFormat
-import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
@@ -110,7 +109,7 @@ class MainActivity : ComponentActivity() {
 			BlockyTheme {
 				val state by viewModel.state.collectAsState()
 
-				val scan = {
+				val scan: () -> Unit = {
 					scanner.startScan()
 						.addOnSuccessListener { barcode ->
 							barcode.rawValue?.let(viewModel::importReceipt)
@@ -119,6 +118,7 @@ class MainActivity : ComponentActivity() {
 						.addOnFailureListener { error ->
 							viewModel.showMessage(error.message ?: "Skenovanie zlyhalo.")
 						}
+					Unit
 				}
 
 				BackHandler(
@@ -369,7 +369,7 @@ private fun OverviewScreen(
 		item {
 			Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
 				Text(
-					currentMonthLabel(),
+					"EVIDOVANÉ VÝDAVKY",
 					style = MaterialTheme.typography.labelMedium,
 					color = MaterialTheme.colorScheme.onSurfaceVariant,
 				)
@@ -1016,11 +1016,6 @@ private fun DiagnosticsDialog(
 		},
 	)
 }
-
-private fun currentMonthLabel(): String = SimpleDateFormat(
-	"LLLL yyyy",
-	Locale("sk", "SK"),
-).format(Date()).uppercase(Locale("sk", "SK"))
 
 private fun receiptSource(id: String): String = if (id.startsWith("wolt:")) {
 	"WOLT"
