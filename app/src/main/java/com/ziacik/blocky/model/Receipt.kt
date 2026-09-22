@@ -9,6 +9,12 @@ data class Receipt(
 	val rawJson: String,
 )
 
+enum class SpendingType {
+	ESSENTIAL,
+	REGULAR,
+	DISCRETIONARY,
+}
+
 data class ReceiptItem(
 	val originalName: String,
 	val canonicalName: String,
@@ -17,6 +23,8 @@ data class ReceiptItem(
 	val quantity: Double,
 	val totalCents: Long,
 	val vatRate: Double?,
+	val spendingType: SpendingType? = null,
+	val classificationConfidence: Double? = null,
 )
 
 data class ReceiptSummary(
