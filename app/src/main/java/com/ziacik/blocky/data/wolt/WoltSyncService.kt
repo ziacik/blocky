@@ -81,6 +81,85 @@ class WoltSyncService(context: Context) {
 		return receipt
 	}
 
+	fun importCurrentMonth(
+		diagnostic: (String) -> Unit = {},
+	): Int {
+		if (!sessionStore.isConnected()) {
+			diagnostic("session: Wolt nie je pripojený")
+			return 0
+		}
+
+		val now = System.currentTimeMillis()
+		val since = WoltSyncWindow.since(
+			lastSuccessfulSyncMillis = null,
+			nowMillis = now,
+			zoneId = ZoneId.of("Europe/Bratislava"),
+		)
+
+		diagnostic("START: sťahujem všetky objednávky aktuálneho mesiaca")
+		diagnostic("history: načítavam objednávky")
+		val historyJson = client.fetchOrderHistory(
+			limit = 200,
+			diagnostic = diagnostic,
+		)
+		val historyOrders = parser.historyOrdersSince(historyJson, since)
+		diagnostic("history: kandidátov za mesiac=" + historyOrders.size)
+
+		var imported = 0
+		var skipped = 0
+		val database = BlockyDatabase(appContext)
+		try {
+			for ((index, historyOrder) in historyOrders.withIndex()) {
+				val receiptId = "wolt:" + historyOrder.purchaseId
+				diagnostic(
+					"order " + (index + 1) + "/" + historyOrders.size +
+						": " + historyOrder.purchaseId +
+						" " + (historyOrder.merchant ?: ""),
+				)
+
+				if (!WoltSyncPlanner.shouldFetchDetail(database.hasPricedReceipt(receiptId))) {
+					skipped++
+					diagnostic("skip: už uložené s cenami")
+					continue
+				}
+
+				val detailJson = client.fetchOrderDetail(
+					purchaseId = historyOrder.purchaseId,
+					diagnostic = diagnostic,
+				)
+				val receipt = parser.parseOrderDetail(
+					json = detailJson,
+					fallbackPurchaseId = historyOrder.purchaseId,
+					fallbackIssuedAt = historyOrder.issuedAt,
+					fallbackMerchant = historyOrder.merchant,
+				)
+				if (receipt == null) {
+					skipped++
+					diagnostic("skip: detail sa nepodarilo parsovať")
+					continue
+				}
+				if (receipt.issuedAt < since) {
+					skipped++
+					diagnostic("skip: objednávka je mimo aktuálneho mesiaca")
+					continue
+				}
+
+				database.save(receipt)
+				imported++
+				diagnostic(
+					"saved: " + receipt.merchant +
+						", items=" + receipt.items.size +
+						", total=" + receipt.totalCents,
+				)
+			}
+		} finally {
+			database.close()
+		}
+
+		diagnostic("DONE: importované=" + imported + ", preskočené=" + skipped)
+		return imported
+	}
+
 	fun sync(): Int {
 		if (!sessionStore.isConnected()) return 0
 
