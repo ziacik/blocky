@@ -19,3 +19,21 @@ object MainNavigation {
 		MainIntent.Back -> MainScreen.Home
 	}
 }
+
+
+enum class HomeOverlay {
+	None,
+	Diagnostics,
+}
+
+sealed interface HomeOverlayIntent {
+	data object OpenDiagnostics : HomeOverlayIntent
+	data object Close : HomeOverlayIntent
+}
+
+object HomeOverlayNavigation {
+	fun reduce(current: HomeOverlay, intent: HomeOverlayIntent): HomeOverlay = when (intent) {
+		HomeOverlayIntent.OpenDiagnostics -> HomeOverlay.Diagnostics
+		HomeOverlayIntent.Close -> HomeOverlay.None
+	}
+}
