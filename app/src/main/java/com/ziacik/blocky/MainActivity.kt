@@ -8,6 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -15,24 +16,36 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -48,6 +61,9 @@ import com.ziacik.blocky.model.ProductTotal
 import com.ziacik.blocky.model.Receipt
 import com.ziacik.blocky.model.ReceiptItem
 import com.ziacik.blocky.model.ReceiptSummary
+import com.ziacik.blocky.ui.HomeOverlay
+import com.ziacik.blocky.ui.HomeOverlayIntent
+import com.ziacik.blocky.ui.HomeOverlayNavigation
 import com.ziacik.blocky.ui.MainScreen
 import com.ziacik.blocky.ui.MainUiState
 import com.ziacik.blocky.ui.MainViewModel
@@ -57,6 +73,26 @@ import java.text.DateFormat
 import java.text.NumberFormat
 import java.util.Date
 import java.util.Locale
+
+private val BlockyColors = lightColorScheme(
+	primary = Color(0xFF5D315E),
+	onPrimary = Color.White,
+	primaryContainer = Color(0xFFF0DFEF),
+	onPrimaryContainer = Color(0xFF311733),
+	secondary = Color(0xFFB6533F),
+	onSecondary = Color.White,
+	secondaryContainer = Color(0xFFFFE1D8),
+	onSecondaryContainer = Color(0xFF4A170D),
+	tertiary = Color(0xFF76603D),
+	tertiaryContainer = Color(0xFFF4E3BD),
+	background = Color(0xFFF7F3EE),
+	onBackground = Color(0xFF261F25),
+	surface = Color(0xFFFFFCF8),
+	onSurface = Color(0xFF261F25),
+	surfaceVariant = Color(0xFFEDE5E7),
+	onSurfaceVariant = Color(0xFF635A60),
+	outline = Color(0xFF8A7F85),
+)
 
 class MainActivity : ComponentActivity() {
 	private val viewModel: MainViewModel by viewModels()
@@ -76,8 +112,11 @@ class MainActivity : ComponentActivity() {
 		)
 
 		setContent {
-			MaterialTheme {
-				Surface(modifier = Modifier.fillMaxSize()) {
+			MaterialTheme(colorScheme = BlockyColors) {
+				Surface(
+					modifier = Modifier.fillMaxSize(),
+					color = MaterialTheme.colorScheme.background,
+				) {
 					val state by viewModel.state.collectAsState()
 					BackHandler(enabled = state.screen != MainScreen.Home) {
 						viewModel.back()
@@ -136,135 +175,223 @@ private fun BlockyHome(
 	onReceipt: (String) -> Unit,
 	onAllItems: () -> Unit,
 ) {
-	Scaffold { innerPadding ->
+	var overflowExpanded by remember { mutableStateOf(false) }
+	var overlay by remember { mutableStateOf(HomeOverlay.None) }
+
+	Scaffold(
+		containerColor = MaterialTheme.colorScheme.background,
+	) { innerPadding ->
 		LazyColumn(
 			modifier = Modifier
 				.fillMaxSize()
 				.padding(innerPadding),
-			contentPadding = PaddingValues(20.dp),
-			verticalArrangement = Arrangement.spacedBy(14.dp),
+			contentPadding = PaddingValues(start = 20.dp, top = 14.dp, end = 20.dp, bottom = 28.dp),
+			verticalArrangement = Arrangement.spacedBy(16.dp),
 		) {
 			item {
-				Text("Bločky", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-				Text("Čo presne žerie tvoje peniaze.", style = MaterialTheme.typography.bodyLarge)
+				Row(
+					modifier = Modifier.fillMaxWidth(),
+					verticalAlignment = Alignment.Top,
+				) {
+					Column(modifier = Modifier.weight(1f)) {
+						Text(
+							"Bločky",
+							style = MaterialTheme.typography.headlineLarge,
+							fontWeight = FontWeight.Black,
+						)
+						Text(
+							"Čo presne žerie tvoje peniaze.",
+							style = MaterialTheme.typography.bodyLarge,
+							color = MaterialTheme.colorScheme.onSurfaceVariant,
+						)
+					}
+					Box {
+						TextButton(onClick = { overflowExpanded = true }) {
+							Text(
+								"•••",
+								style = MaterialTheme.typography.titleLarge,
+								color = MaterialTheme.colorScheme.onSurfaceVariant,
+							)
+						}
+						DropdownMenu(
+							expanded = overflowExpanded,
+							onDismissRequest = { overflowExpanded = false },
+						) {
+							DropdownMenuItem(
+								text = {
+									Text(
+										if (state.woltDiagnostics.isEmpty()) {
+											"Wolt diagnostika"
+										} else {
+											"Wolt diagnostika · ${state.woltDiagnostics.size}"
+										},
+									)
+								},
+								onClick = {
+									overflowExpanded = false
+									overlay = HomeOverlayNavigation.reduce(
+										overlay,
+										HomeOverlayIntent.OpenDiagnostics,
+									)
+								},
+							)
+						}
+					}
+				}
 			}
+
 			item {
-				Card(modifier = Modifier.fillMaxWidth()) {
-					Column(modifier = Modifier.padding(20.dp)) {
-						Text("Zaevidované výdavky", style = MaterialTheme.typography.labelLarge)
+				Card(
+					modifier = Modifier.fillMaxWidth(),
+					shape = RoundedCornerShape(28.dp),
+					colors = CardDefaults.cardColors(
+						containerColor = MaterialTheme.colorScheme.primaryContainer,
+					),
+				) {
+					Column(
+						modifier = Modifier.padding(horizontal = 22.dp, vertical = 24.dp),
+						verticalArrangement = Arrangement.spacedBy(6.dp),
+					) {
+						Text(
+							"SPOLU EVIDOVANÉ",
+							style = MaterialTheme.typography.labelMedium,
+							fontWeight = FontWeight.Bold,
+							color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.68f),
+						)
 						Text(
 							money(state.totalCents),
 							style = MaterialTheme.typography.displaySmall,
-							fontWeight = FontWeight.Bold,
+							fontWeight = FontWeight.Black,
+							color = MaterialTheme.colorScheme.onPrimaryContainer,
+						)
+						Text(
+							"${state.receipts.size} bločkov v evidencii",
+							style = MaterialTheme.typography.bodyMedium,
+							color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.74f),
 						)
 					}
 				}
 			}
-			item {
-				Button(
-					onClick = onScan,
-					enabled = !state.loading,
-					modifier = Modifier.fillMaxWidth(),
-				) {
-					if (state.loading) {
-						CircularProgressIndicator(modifier = Modifier.height(20.dp))
-						Spacer(modifier = Modifier.padding(4.dp))
-					}
-					Text(if (state.loading) "Načítavam…" else "Naskenovať QR bločku")
-				}
-			}
-			item {
-				val actions = WoltControls.actions(
-					connected = state.woltConnected,
-					busy = state.woltBusy,
-				)
 
-				if (state.woltBusy) {
+			item {
+				Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
 					Button(
-						onClick = {},
-						enabled = false,
-						modifier = Modifier.fillMaxWidth(),
+						onClick = onScan,
+						enabled = !state.loading,
+						modifier = Modifier
+							.fillMaxWidth()
+							.height(54.dp),
+						shape = RoundedCornerShape(18.dp),
 					) {
-						Text("Sťahujem Wolt…")
-					}
-				} else {
-					actions.forEach { action ->
-						Button(
-							onClick = when (action) {
-								WoltAction.Connect -> onConnectWolt
-								WoltAction.CurrentMonth -> onCurrentMonthWolt
-							},
-							enabled = !state.loading,
-							modifier = Modifier.fillMaxWidth(),
-						) {
-							Text(
-								when (action) {
-									WoltAction.Connect -> "Prepojiť Wolt"
-									WoltAction.CurrentMonth ->
-										"Synchronizovať Wolt – aktuálny mesiac"
-								}
+						if (state.loading) {
+							CircularProgressIndicator(
+								modifier = Modifier.height(20.dp),
+								strokeWidth = 2.dp,
+								color = MaterialTheme.colorScheme.onPrimary,
 							)
+							Spacer(modifier = Modifier.padding(5.dp))
 						}
-						if (action != actions.last()) {
-							Spacer(modifier = Modifier.height(8.dp))
-						}
+						Text(
+							if (state.loading) "Načítavam…" else "Naskenovať QR bločku",
+							fontWeight = FontWeight.Bold,
+						)
+					}
+
+					val woltAction = WoltControls.actions(
+						connected = state.woltConnected,
+						busy = state.woltBusy,
+					).firstOrNull()
+
+					FilledTonalButton(
+						onClick = when (woltAction) {
+							WoltAction.Connect -> onConnectWolt
+							WoltAction.CurrentMonth -> onCurrentMonthWolt
+							null -> ({})
+						},
+						enabled = !state.loading && !state.woltBusy,
+						modifier = Modifier
+							.fillMaxWidth()
+							.height(52.dp),
+						shape = RoundedCornerShape(18.dp),
+					) {
+						Text(
+							when {
+								state.woltBusy -> "Synchronizujem Wolt…"
+								woltAction == WoltAction.Connect -> "Prepojiť Wolt"
+								else -> "Synchronizovať Wolt · tento mesiac"
+							},
+							fontWeight = FontWeight.SemiBold,
+						)
 					}
 				}
+			}
 
-				state.message?.let {
-					Spacer(modifier = Modifier.height(8.dp))
-					Text(it, style = MaterialTheme.typography.bodyMedium)
+			state.message?.let { message ->
+				item {
+					Surface(
+						modifier = Modifier.fillMaxWidth(),
+						shape = RoundedCornerShape(18.dp),
+						color = MaterialTheme.colorScheme.tertiaryContainer,
+					) {
+						Text(
+							message,
+							modifier = Modifier.padding(horizontal = 16.dp, vertical = 13.dp),
+							style = MaterialTheme.typography.bodyMedium,
+						)
+					}
 				}
 			}
-			if (state.woltDiagnostics.isNotEmpty()) {
+
+			if (state.categories.isNotEmpty()) {
+				item { SectionTitle("Najväčšie kategórie", "Kam odteká najviac") }
 				item {
-					Card(modifier = Modifier.fillMaxWidth()) {
-						Column(
-							modifier = Modifier.padding(14.dp),
-							verticalArrangement = Arrangement.spacedBy(6.dp),
-						) {
-							Row(
-								modifier = Modifier.fillMaxWidth(),
-								verticalAlignment = Alignment.CenterVertically,
-							) {
-								Text(
-									"Wolt diagnostika",
-									modifier = Modifier.weight(1f),
-									fontWeight = FontWeight.SemiBold,
-								)
-								TextButton(onClick = onClearWoltDiagnostics) {
-									Text("Vymazať")
+					Card(
+						modifier = Modifier.fillMaxWidth(),
+						shape = RoundedCornerShape(22.dp),
+						colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+					) {
+						Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+							state.categories.take(5).forEachIndexed { index, category ->
+								CategoryRow(category)
+								if (index != minOf(4, state.categories.lastIndex)) {
+									HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
 								}
 							}
-							state.woltDiagnostics.forEach { line ->
-								Text(
-									text = line,
-									style = MaterialTheme.typography.bodySmall,
-									fontFamily = FontFamily.Monospace,
-								)
-							}
 						}
 					}
 				}
 			}
-			if (state.categories.isNotEmpty()) {
-				item { SectionTitle("Najväčšie kategórie") }
-				items(state.categories) { category -> CategoryRow(category) }
-			}
+
 			if (state.products.isNotEmpty()) {
-				item { SectionTitle("Najdrahšie produkty") }
-				items(state.products) { product -> ProductRow(product) }
+				item { SectionTitle("Najdrahšie položky", "Top produkty podľa výdavkov") }
 				item {
-					Button(
+					Card(
+						modifier = Modifier.fillMaxWidth(),
+						shape = RoundedCornerShape(22.dp),
+						colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+					) {
+						Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+							state.products.take(5).forEachIndexed { index, product ->
+								ProductRow(product)
+								if (index != minOf(4, state.products.lastIndex)) {
+									HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+								}
+							}
+						}
+					}
+				}
+				item {
+					TextButton(
 						onClick = onAllItems,
 						modifier = Modifier.fillMaxWidth(),
 					) {
-						Text("Všetky položky")
+						Text("Zobraziť všetky položky")
 					}
 				}
 			}
+
 			if (state.receipts.isNotEmpty()) {
-				item { SectionTitle("Posledné bločky") }
+				item { SectionTitle("Posledné bločky", "Najnovšie nákupy") }
 				items(state.receipts) { receipt ->
 					ReceiptRow(
 						receipt = receipt,
@@ -274,6 +401,73 @@ private fun BlockyHome(
 			}
 		}
 	}
+
+	if (overlay == HomeOverlay.Diagnostics) {
+		DiagnosticsDialog(
+			lines = state.woltDiagnostics,
+			onClear = onClearWoltDiagnostics,
+			onDismiss = {
+				overlay = HomeOverlayNavigation.reduce(
+					overlay,
+					HomeOverlayIntent.Close,
+				)
+			},
+		)
+	}
+}
+
+@Composable
+private fun DiagnosticsDialog(
+	lines: List<String>,
+	onClear: () -> Unit,
+	onDismiss: () -> Unit,
+) {
+	AlertDialog(
+		onDismissRequest = onDismiss,
+		title = {
+			Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+				Text("Wolt diagnostika", fontWeight = FontWeight.Bold)
+				Text(
+					"${lines.size} záznamov",
+					style = MaterialTheme.typography.bodySmall,
+					color = MaterialTheme.colorScheme.onSurfaceVariant,
+				)
+			}
+		},
+		text = {
+			if (lines.isEmpty()) {
+				Text(
+					"Zatiaľ tu nič nie je.",
+					color = MaterialTheme.colorScheme.onSurfaceVariant,
+				)
+			} else {
+				LazyColumn(
+					modifier = Modifier.heightIn(max = 360.dp),
+					verticalArrangement = Arrangement.spacedBy(7.dp),
+				) {
+					items(lines) { line ->
+						Text(
+							text = line,
+							style = MaterialTheme.typography.bodySmall,
+							fontFamily = FontFamily.Monospace,
+						)
+					}
+				}
+			}
+		},
+		confirmButton = {
+			TextButton(onClick = onDismiss) {
+				Text("Hotovo")
+			}
+		},
+		dismissButton = {
+			if (lines.isNotEmpty()) {
+				TextButton(onClick = onClear) {
+					Text("Vymazať")
+				}
+			}
+		},
+	)
 }
 
 @Composable
@@ -281,13 +475,15 @@ private fun ReceiptDetailScreen(
 	state: MainUiState,
 	onBack: () -> Unit,
 ) {
-	Scaffold { innerPadding ->
+	Scaffold(
+		containerColor = MaterialTheme.colorScheme.background,
+	) { innerPadding ->
 		LazyColumn(
 			modifier = Modifier
 				.fillMaxSize()
 				.padding(innerPadding),
 			contentPadding = PaddingValues(20.dp),
-			verticalArrangement = Arrangement.spacedBy(12.dp),
+			verticalArrangement = Arrangement.spacedBy(14.dp),
 		) {
 			item { BackButton(onBack) }
 
@@ -304,10 +500,21 @@ private fun ReceiptDetailScreen(
 
 			state.selectedReceipt?.let { receipt ->
 				item { ReceiptHeader(receipt) }
-				item { SectionTitle("Položky") }
-				items(receipt.items) { item ->
-					ReceiptItemRow(item)
-					HorizontalDivider()
+				item { SectionTitle("Položky", "${receipt.items.size} položiek") }
+				item {
+					Card(
+						modifier = Modifier.fillMaxWidth(),
+						shape = RoundedCornerShape(22.dp),
+					) {
+						Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+							receipt.items.forEachIndexed { index, item ->
+								ReceiptItemRow(item)
+								if (index != receipt.items.lastIndex) {
+									HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+								}
+							}
+						}
+					}
 				}
 			}
 
@@ -324,7 +531,9 @@ private fun AllItemsScreen(
 	onBack: () -> Unit,
 	onReceipt: (String) -> Unit,
 ) {
-	Scaffold { innerPadding ->
+	Scaffold(
+		containerColor = MaterialTheme.colorScheme.background,
+	) { innerPadding ->
 		LazyColumn(
 			modifier = Modifier
 				.fillMaxSize()
@@ -333,7 +542,7 @@ private fun AllItemsScreen(
 			verticalArrangement = Arrangement.spacedBy(10.dp),
 		) {
 			item { BackButton(onBack) }
-			item { Text("Všetky položky", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) }
+			item { SectionTitle("Všetky položky", "${state.allItems.size} položiek") }
 
 			if (state.loading && state.allItems.isEmpty()) {
 				item {
@@ -359,34 +568,63 @@ private fun AllItemsScreen(
 @Composable
 private fun BackButton(onBack: () -> Unit) {
 	TextButton(onClick = onBack) {
-		Text("‹ Späť")
+		Text("‹ Späť", fontWeight = FontWeight.SemiBold)
 	}
 }
 
 @Composable
 private fun ReceiptHeader(receipt: Receipt) {
-	Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-		Text(
-			receipt.merchant,
-			style = MaterialTheme.typography.headlineMedium,
-			fontWeight = FontWeight.Bold,
-		)
-		Text(
-			DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
-				.format(Date(receipt.issuedAt)),
-			style = MaterialTheme.typography.bodyMedium,
-		)
-		Text(
-			money(receipt.totalCents),
-			style = MaterialTheme.typography.headlineLarge,
-			fontWeight = FontWeight.Bold,
-		)
+	Card(
+		modifier = Modifier.fillMaxWidth(),
+		shape = RoundedCornerShape(26.dp),
+		colors = CardDefaults.cardColors(
+			containerColor = MaterialTheme.colorScheme.secondaryContainer,
+		),
+	) {
+		Column(
+			modifier = Modifier.padding(22.dp),
+			verticalArrangement = Arrangement.spacedBy(5.dp),
+		) {
+			Text(
+				receipt.merchant,
+				style = MaterialTheme.typography.headlineMedium,
+				fontWeight = FontWeight.Black,
+			)
+			Text(
+				DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+					.format(Date(receipt.issuedAt)),
+				style = MaterialTheme.typography.bodyMedium,
+				color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.72f),
+			)
+			Spacer(modifier = Modifier.height(4.dp))
+			Text(
+				money(receipt.totalCents),
+				style = MaterialTheme.typography.displaySmall,
+				fontWeight = FontWeight.Black,
+			)
+		}
 	}
 }
 
 @Composable
-private fun SectionTitle(value: String) {
-	Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+private fun SectionTitle(
+	value: String,
+	subtitle: String? = null,
+) {
+	Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+		Text(
+			value,
+			style = MaterialTheme.typography.titleLarge,
+			fontWeight = FontWeight.Bold,
+		)
+		subtitle?.let {
+			Text(
+				it,
+				style = MaterialTheme.typography.bodySmall,
+				color = MaterialTheme.colorScheme.onSurfaceVariant,
+			)
+		}
+	}
 }
 
 @Composable
@@ -411,7 +649,9 @@ private fun PriceRow(
 	priceCents: Long,
 ) {
 	Row(
-		modifier = Modifier.fillMaxWidth(),
+		modifier = Modifier
+			.fillMaxWidth()
+			.padding(vertical = 13.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
 		Text(
@@ -421,13 +661,14 @@ private fun PriceRow(
 				.padding(end = 16.dp),
 			maxLines = 2,
 			overflow = TextOverflow.Ellipsis,
+			fontWeight = FontWeight.Medium,
 		)
 		Text(
 			text = money(priceCents),
 			modifier = Modifier.widthIn(min = 88.dp),
 			textAlign = TextAlign.End,
 			maxLines = 1,
-			fontWeight = FontWeight.SemiBold,
+			fontWeight = FontWeight.Bold,
 		)
 	}
 }
@@ -440,10 +681,13 @@ private fun ReceiptRow(
 	Card(
 		onClick = onClick,
 		modifier = Modifier.fillMaxWidth(),
+		shape = RoundedCornerShape(22.dp),
+		colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+		elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
 	) {
 		Row(
 			modifier = Modifier
-				.padding(16.dp)
+				.padding(horizontal = 17.dp, vertical = 16.dp)
 				.fillMaxWidth(),
 			verticalAlignment = Alignment.CenterVertically,
 		) {
@@ -454,14 +698,15 @@ private fun ReceiptRow(
 			) {
 				Text(
 					receipt.merchant,
-					fontWeight = FontWeight.SemiBold,
+					fontWeight = FontWeight.Bold,
 					maxLines = 2,
 					overflow = TextOverflow.Ellipsis,
 				)
 				Text(
 					DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
 						.format(Date(receipt.issuedAt)),
-					style = MaterialTheme.typography.bodyMedium,
+					style = MaterialTheme.typography.bodySmall,
+					color = MaterialTheme.colorScheme.onSurfaceVariant,
 				)
 			}
 			Text(
@@ -469,7 +714,7 @@ private fun ReceiptRow(
 				modifier = Modifier.widthIn(min = 88.dp),
 				textAlign = TextAlign.End,
 				maxLines = 1,
-				fontWeight = FontWeight.Bold,
+				fontWeight = FontWeight.Black,
 			)
 		}
 	}
@@ -480,7 +725,7 @@ private fun ReceiptItemRow(item: ReceiptItem) {
 	Row(
 		modifier = Modifier
 			.fillMaxWidth()
-			.padding(vertical = 8.dp),
+			.padding(vertical = 12.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
 		Column(
@@ -490,13 +735,14 @@ private fun ReceiptItemRow(item: ReceiptItem) {
 		) {
 			Text(
 				item.originalName,
-				fontWeight = FontWeight.Medium,
+				fontWeight = FontWeight.SemiBold,
 				maxLines = 3,
 				overflow = TextOverflow.Ellipsis,
 			)
 			Text(
 				itemMeta(item.quantity, item.category),
 				style = MaterialTheme.typography.bodySmall,
+				color = MaterialTheme.colorScheme.onSurfaceVariant,
 			)
 		}
 		Text(
@@ -504,7 +750,7 @@ private fun ReceiptItemRow(item: ReceiptItem) {
 			modifier = Modifier.widthIn(min = 88.dp),
 			textAlign = TextAlign.End,
 			maxLines = 1,
-			fontWeight = FontWeight.SemiBold,
+			fontWeight = FontWeight.Bold,
 		)
 	}
 }
@@ -517,11 +763,13 @@ private fun AllItemRow(
 	Card(
 		onClick = onClick,
 		modifier = Modifier.fillMaxWidth(),
+		shape = RoundedCornerShape(20.dp),
+		colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
 	) {
 		Row(
 			modifier = Modifier
 				.fillMaxWidth()
-				.padding(14.dp),
+				.padding(16.dp),
 			verticalAlignment = Alignment.CenterVertically,
 		) {
 			Column(
@@ -531,7 +779,7 @@ private fun AllItemRow(
 			) {
 				Text(
 					item.originalName,
-					fontWeight = FontWeight.Medium,
+					fontWeight = FontWeight.SemiBold,
 					maxLines = 2,
 					overflow = TextOverflow.Ellipsis,
 				)
@@ -539,12 +787,14 @@ private fun AllItemRow(
 					item.merchant + " · " +
 						DateFormat.getDateInstance(DateFormat.SHORT).format(Date(item.issuedAt)),
 					style = MaterialTheme.typography.bodySmall,
+					color = MaterialTheme.colorScheme.onSurfaceVariant,
 					maxLines = 1,
 					overflow = TextOverflow.Ellipsis,
 				)
 				Text(
 					itemMeta(item.quantity, item.category),
 					style = MaterialTheme.typography.bodySmall,
+					color = MaterialTheme.colorScheme.onSurfaceVariant,
 				)
 			}
 			Text(
@@ -552,7 +802,7 @@ private fun AllItemRow(
 				modifier = Modifier.widthIn(min = 88.dp),
 				textAlign = TextAlign.End,
 				maxLines = 1,
-				fontWeight = FontWeight.SemiBold,
+				fontWeight = FontWeight.Bold,
 			)
 		}
 	}
