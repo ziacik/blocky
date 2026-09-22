@@ -13,32 +13,46 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToLong
 
+data class WoltHistoryOrder(
+	val purchaseId: String,
+	val issuedAt: Long?,
+	val merchant: String?,
+)
+
 class WoltOrderParser(
 	private val normalizer: ItemNormalizer,
 	private val zoneId: ZoneId = ZoneId.of("Europe/Bratislava"),
 ) {
-	fun latestPurchaseId(json: String): String? {
+	fun latestPurchaseId(json: String): String? =
+		latestHistoryOrder(json)?.purchaseId
+
+	fun latestHistoryOrder(json: String): WoltHistoryOrder? {
 		val root = JSONObject(json)
 		val orders = root.optJSONArray("orders") ?: return null
 		if (orders.length() == 0) return null
 
-		var fallback: String? = null
-		var newestId: String? = null
+		var fallback: WoltHistoryOrder? = null
+		var newest: WoltHistoryOrder? = null
 		var newestTimestamp = Long.MIN_VALUE
 
 		for (index in 0 until orders.length()) {
 			val order = orders.optJSONObject(index) ?: continue
 			val purchaseId = firstString(order, "purchase_id", "order_id", "id") ?: continue
-			if (fallback == null) fallback = purchaseId
+			val candidate = WoltHistoryOrder(
+				purchaseId = purchaseId,
+				issuedAt = parseTimestamp(order),
+				merchant = firstString(order, "venue_name", "merchant_name"),
+			)
+			if (fallback == null) fallback = candidate
 
-			val timestamp = parseTimestamp(order) ?: continue
+			val timestamp = candidate.issuedAt ?: continue
 			if (timestamp > newestTimestamp) {
 				newestTimestamp = timestamp
-				newestId = purchaseId
+				newest = candidate
 			}
 		}
 
-		return newestId ?: fallback
+		return newest ?: fallback
 	}
 
 	fun parseHistoryPurchaseIds(json: String, sinceMillis: Long): List<String> {
@@ -57,12 +71,20 @@ class WoltOrderParser(
 		}
 	}
 
-	fun parseOrderDetail(json: String): Receipt? {
+	fun parseOrderDetail(
+		json: String,
+		fallbackPurchaseId: String? = null,
+		fallbackIssuedAt: Long? = null,
+		fallbackMerchant: String? = null,
+	): Receipt? {
 		val order = JSONObject(json)
-		val issuedAt = parseTimestamp(order) ?: return null
-		val id = firstString(order, "purchase_id", "order_id", "id") ?: return null
+		val issuedAt = parseTimestamp(order) ?: fallbackIssuedAt ?: return null
+		val id = firstString(order, "purchase_id", "order_id", "id")
+			?: fallbackPurchaseId
+			?: return null
 		val merchant = firstString(order, "venue_name")
 			?: order.optJSONObject("venue")?.optString("name")?.takeIf(String::isNotBlank)
+			?: fallbackMerchant
 			?: "Wolt"
 		val totalCents = parseOrderDetailTotal(order)
 		val items = parseItems(order.optJSONArray("items") ?: JSONArray())
