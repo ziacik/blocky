@@ -36,7 +36,7 @@ data class MainUiState(
 	val products: List<ProductTotal> = emptyList(),
 	val allItems: List<ItemListEntry> = emptyList(),
 	val selectedReceipt: Receipt? = null,
-	val screen: MainScreen = MainScreen.Home,
+	val screen: MainScreen = MainScreen.Overview,
 	val woltConnected: Boolean = false,
 	val woltDiagnostics: List<String> = emptyList(),
 	val message: String? = null,
@@ -190,6 +190,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 		}
 	}
 
+	fun openOverview() {
+		_state.update {
+			it.copy(
+				screen = MainNavigation.reduce(it.screen, MainIntent.OpenOverview),
+				message = null,
+			)
+		}
+	}
+
+	fun openReceipts() {
+		_state.update {
+			it.copy(
+				screen = MainNavigation.reduce(it.screen, MainIntent.OpenReceipts),
+				message = null,
+			)
+		}
+	}
+
 	fun openAllItems() {
 		val screen = MainNavigation.reduce(_state.value.screen, MainIntent.OpenAllItems)
 		_state.value = _state.value.copy(screen = screen, loading = true)
@@ -198,6 +216,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 			_state.value = _state.value.copy(
 				loading = false,
 				allItems = items,
+				message = null,
+			)
+		}
+	}
+
+	fun openSettings() {
+		_state.update {
+			it.copy(
+				screen = MainNavigation.reduce(it.screen, MainIntent.OpenSettings),
 				message = null,
 			)
 		}
