@@ -59,6 +59,41 @@ class CategorizationPipelineTest {
 		assertEquals(SpendingType.ESSENTIAL, result.items.single().spendingType)
 	}
 
+	@Test
+	fun apiKeyTakesPrecedenceOverBackendEndpoint() {
+		var receivedApiKey: String? = null
+		var backendTransportCreated = false
+		val client = object : CategorizationClient {
+			override fun categorize(request: CategorizationRequest): List<CategorizedItem> = listOf(
+				CategorizedItem(
+					index = 0,
+					canonicalName = "Biely rožok",
+					category = "Potraviny",
+					subcategory = "Pečivo",
+					spendingType = SpendingType.ESSENTIAL,
+					confidence = 0.99,
+				),
+			)
+		}
+
+		val result = CategorizationPipeline.create(
+			apiKey = "test-key",
+			endpoint = "https://example.test/categorize",
+			openAiClientFactory = { key ->
+				receivedApiKey = key
+				client
+			},
+			transportFactory = {
+				backendTransportCreated = true
+				error("Backend transport must not be created when OPENAI_API_KEY is set")
+			},
+		).categorize(receipt())
+
+		assertEquals("test-key", receivedApiKey)
+		assertEquals(false, backendTransportCreated)
+		assertEquals("Pečivo", result.items.single().subcategory)
+	}
+
 	private fun receipt() = Receipt(
 		id = "receipt-1",
 		merchant = "dm drogerie markt",
