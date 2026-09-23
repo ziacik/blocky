@@ -66,6 +66,11 @@ data class SubcategoryTotal(
 	val totalCents: Long,
 )
 
+data class SpendingTypeTotal(
+	val spendingType: SpendingType?,
+	val totalCents: Long,
+)
+
 data class ProductTotal(
 	val product: String,
 	val totalCents: Long,

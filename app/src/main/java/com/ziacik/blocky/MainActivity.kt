@@ -73,6 +73,7 @@ import com.ziacik.blocky.model.Receipt
 import com.ziacik.blocky.model.ReceiptItem
 import com.ziacik.blocky.model.ReceiptSummary
 import com.ziacik.blocky.model.SpendingType
+import com.ziacik.blocky.model.SpendingTypeTotal
 import com.ziacik.blocky.model.SubcategoryTotal
 import com.ziacik.blocky.ui.ClassificationEditorState
 import com.ziacik.blocky.ui.HomeOverlay
@@ -411,6 +412,7 @@ private fun OverviewScreen(
 				CategoryBreakdown(
 					categories = state.categories,
 					subcategories = state.subcategories,
+					spendingTypes = state.spendingTypes,
 					totalCents = state.totalCents,
 				)
 			}
@@ -439,18 +441,29 @@ private fun OverviewScreen(
 private fun CategoryBreakdown(
 	categories: List<CategoryTotal>,
 	subcategories: List<SubcategoryTotal>,
+	spendingTypes: List<SpendingTypeTotal>,
 	totalCents: Long,
 ) {
-	var showSubcategories by remember { mutableStateOf(false) }
-	val visible = if (showSubcategories) {
-		subcategories
+	var dimension by remember { mutableStateOf(BreakdownDimension.Category) }
+	val visible = when (dimension) {
+		BreakdownDimension.Category -> categories
+			.filter { it.totalCents > 0 }
+			.map { BreakdownTotal(it.category, it.totalCents) }
+			.take(5)
+
+		BreakdownDimension.Subcategory -> subcategories
 			.filter { it.totalCents > 0 }
 			.map { BreakdownTotal(it.subcategory, it.totalCents) }
 			.take(5)
-	} else {
-		categories
+
+		BreakdownDimension.SpendingType -> spendingTypes
 			.filter { it.totalCents > 0 }
-			.map { BreakdownTotal(it.category, it.totalCents) }
+			.map {
+				BreakdownTotal(
+					label = it.spendingType?.let(::spendingTypeLabel) ?: "Nezaradené",
+					totalCents = it.totalCents,
+				)
+			}
 			.take(5)
 	}
 
@@ -459,14 +472,19 @@ private fun CategoryBreakdown(
 
 		Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 			FilterChip(
-				selected = !showSubcategories,
-				onClick = { showSubcategories = false },
+				selected = dimension == BreakdownDimension.Category,
+				onClick = { dimension = BreakdownDimension.Category },
 				label = { Text("Kategórie") },
 			)
 			FilterChip(
-				selected = showSubcategories,
-				onClick = { showSubcategories = true },
+				selected = dimension == BreakdownDimension.Subcategory,
+				onClick = { dimension = BreakdownDimension.Subcategory },
 				label = { Text("Podkategórie") },
+			)
+			FilterChip(
+				selected = dimension == BreakdownDimension.SpendingType,
+				onClick = { dimension = BreakdownDimension.SpendingType },
+				label = { Text("Typ") },
 			)
 		}
 
@@ -527,6 +545,12 @@ private fun CategoryBreakdown(
 			}
 		}
 	}
+}
+
+private enum class BreakdownDimension {
+	Category,
+	Subcategory,
+	SpendingType,
 }
 
 private data class BreakdownTotal(

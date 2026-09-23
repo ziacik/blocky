@@ -8,6 +8,7 @@ import com.ziacik.blocky.model.ProductTotal
 import com.ziacik.blocky.model.Receipt
 import com.ziacik.blocky.model.ReceiptSummary
 import com.ziacik.blocky.model.SpendingType
+import com.ziacik.blocky.model.SpendingTypeTotal
 import com.ziacik.blocky.model.SubcategoryTotal
 
 interface ReceiptLookupClient {
@@ -69,6 +70,7 @@ class ReceiptRepository(
 		receipts = database.receiptSummaries(),
 		categories = database.categoryTotals(),
 		subcategories = database.subcategoryTotals(),
+		spendingTypes = database.spendingTypeTotals(),
 		products = database.productTotals(),
 	)
 }
@@ -78,5 +80,6 @@ data class RepositorySnapshot(
 	val receipts: List<ReceiptSummary>,
 	val categories: List<CategoryTotal>,
 	val subcategories: List<SubcategoryTotal>,
+	val spendingTypes: List<SpendingTypeTotal>,
 	val products: List<ProductTotal>,
 )

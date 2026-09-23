@@ -4,6 +4,7 @@ import com.ziacik.blocky.model.ClassificationSource
 import com.ziacik.blocky.model.Receipt
 import com.ziacik.blocky.model.ReceiptItem
 import com.ziacik.blocky.model.SpendingType
+import com.ziacik.blocky.model.SpendingTypeTotal
 import com.ziacik.blocky.model.SubcategoryTotal
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -104,6 +105,42 @@ class BlockyDatabaseClassificationTest {
 				SubcategoryTotal("Potraviny", "Sladkosti", 199L),
 			),
 			database.subcategoryTotals(),
+		)
+	}
+
+	@Test
+	fun aggregatesSpendingTypeTotalsIncludingUnclassifiedItems() {
+		database.save(
+			Receipt(
+				id = "spending-types",
+				merchant = "Lidl",
+				issuedAt = 1L,
+				totalCents = 600L,
+				items = listOf(
+					item("CHLIEB", "Pečivo").copy(
+						totalCents = 300L,
+						spendingType = SpendingType.ESSENTIAL,
+					),
+					item("KAVA", "Trvanlivé potraviny").copy(
+						totalCents = 200L,
+						spendingType = SpendingType.REGULAR,
+					),
+					item("NEZARADENE", "Iné potraviny").copy(
+						totalCents = 100L,
+						spendingType = null,
+					),
+				),
+				rawJson = "{}",
+			),
+		)
+
+		assertEquals(
+			listOf(
+				SpendingTypeTotal(SpendingType.ESSENTIAL, 300L),
+				SpendingTypeTotal(SpendingType.REGULAR, 200L),
+				SpendingTypeTotal(null, 100L),
+			),
+			database.spendingTypeTotals(),
 		)
 	}
 

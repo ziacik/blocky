@@ -13,6 +13,7 @@ import com.ziacik.blocky.model.Receipt
 import com.ziacik.blocky.model.ReceiptItem
 import com.ziacik.blocky.model.ReceiptSummary
 import com.ziacik.blocky.model.SpendingType
+import com.ziacik.blocky.model.SpendingTypeTotal
 import com.ziacik.blocky.model.SubcategoryTotal
 
 class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", null, 3), ReceiptStore {
@@ -339,6 +340,27 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 						category = cursor.getString(0),
 						subcategory = cursor.getString(1),
 						totalCents = cursor.getLong(2),
+					)
+				)
+			}
+		}
+	}
+
+	fun spendingTypeTotals(): List<SpendingTypeTotal> = readableDatabase.rawQuery(
+		"""
+		SELECT spending_type, SUM(total_cents) total
+		FROM items
+		GROUP BY spending_type
+		ORDER BY total DESC
+		""".trimIndent(),
+		null,
+	).use { cursor ->
+		buildList {
+			while (cursor.moveToNext()) {
+				add(
+					SpendingTypeTotal(
+						spendingType = enumOrNull<SpendingType>(cursor, 0),
+						totalCents = cursor.getLong(1),
 					)
 				)
 			}
