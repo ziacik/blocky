@@ -36,6 +36,22 @@ class SummaryItemsTest {
 	}
 
 	@Test
+	fun receiptOpenedFromSummaryRefreshesItemsUsingItsSummaryFilter() {
+		val updatedItems = listOf(
+			item("Domácnosť", "Čistenie", SpendingType.REGULAR),
+		)
+		val screen = MainScreen.ReceiptDetail(
+			receiptId = "receipt-1",
+			returnTo = MainScreen.SummaryItems(SummaryFilter.Category("Potraviny")),
+		)
+
+		assertEquals(
+			emptyList<ItemListEntry>(),
+			SummaryItems.forScreen(updatedItems, screen),
+		)
+	}
+
+	@Test
 	fun expenseTypeFilterCanShowUnclassifiedItems() {
 		val items = listOf(
 			item("Potraviny", "Pečivo", null),

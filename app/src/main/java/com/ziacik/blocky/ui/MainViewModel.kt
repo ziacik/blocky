@@ -235,13 +235,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 						subcategory = subcategory,
 						spendingType = spendingType,
 					)
-					receipt to repository.snapshot()
+					Triple(receipt, repository.snapshot(), repository.allItems())
 				}
 			}
 
-			result.onSuccess { (receipt, snapshot) ->
+			result.onSuccess { (receipt, snapshot, items) ->
 				applySnapshot(snapshot, "Kategória upravená.")
-				_state.update { it.copy(selectedReceipt = receipt) }
+				_state.update { state ->
+					state.copy(
+						selectedReceipt = receipt,
+						allItems = items,
+						summaryItems = SummaryItems.forScreen(items, state.screen) ?: state.summaryItems,
+					)
+				}
 			}.onFailure { error ->
 				_state.update {
 					it.copy(message = error.message ?: "Kategóriu sa nepodarilo upraviť.")

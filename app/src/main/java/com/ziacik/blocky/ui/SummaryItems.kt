@@ -32,6 +32,19 @@ object SummaryItems {
 		}
 	}
 
+	fun forScreen(
+		items: List<ItemListEntry>,
+		screen: MainScreen,
+	): List<ItemListEntry>? {
+		val summaryFilter = when (screen) {
+			is MainScreen.SummaryItems -> screen.filter
+			is MainScreen.ReceiptDetail -> (screen.returnTo as? MainScreen.SummaryItems)?.filter
+			else -> null
+		} ?: return null
+
+		return filter(items, summaryFilter)
+	}
+
 	fun title(filter: SummaryFilter): String = when (filter) {
 		is SummaryFilter.Category -> filter.category
 		is SummaryFilter.Subcategory -> filter.subcategory
