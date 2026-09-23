@@ -4,7 +4,11 @@ sealed interface MainScreen {
 	data object Overview : MainScreen
 	data object Receipts : MainScreen
 	data object AllItems : MainScreen
-	data class SummaryItems(val filter: SummaryFilter) : MainScreen
+	data class Breakdown(val dimension: BreakdownDimension) : MainScreen
+	data class SummaryItems(
+		val filter: SummaryFilter,
+		val returnTo: MainScreen = MainScreen.Overview,
+	) : MainScreen
 	data object Settings : MainScreen
 	data class ReceiptDetail(
 		val receiptId: String,
@@ -17,6 +21,7 @@ sealed interface MainIntent {
 	data object OpenOverview : MainIntent
 	data object OpenReceipts : MainIntent
 	data object OpenAllItems : MainIntent
+	data class OpenBreakdown(val dimension: BreakdownDimension) : MainIntent
 	data class OpenSummary(val filter: SummaryFilter) : MainIntent
 	data object OpenSettings : MainIntent
 	data object Back : MainIntent
@@ -35,11 +40,19 @@ object MainNavigation {
 		MainIntent.OpenOverview -> MainScreen.Overview
 		MainIntent.OpenReceipts -> MainScreen.Receipts
 		MainIntent.OpenAllItems -> MainScreen.AllItems
-		is MainIntent.OpenSummary -> MainScreen.SummaryItems(intent.filter)
+		is MainIntent.OpenBreakdown -> MainScreen.Breakdown(intent.dimension)
+		is MainIntent.OpenSummary -> MainScreen.SummaryItems(
+			filter = intent.filter,
+			returnTo = when (current) {
+				is MainScreen.ReceiptDetail -> current.returnTo
+				else -> current
+			},
+		)
 		MainIntent.OpenSettings -> MainScreen.Settings
 		MainIntent.Back -> when (current) {
 			is MainScreen.ReceiptDetail -> current.returnTo
-			is MainScreen.SummaryItems -> MainScreen.Overview
+			is MainScreen.SummaryItems -> current.returnTo
+			is MainScreen.Breakdown -> MainScreen.Overview
 			MainScreen.Settings -> MainScreen.Overview
 			else -> current
 		}

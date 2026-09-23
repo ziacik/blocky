@@ -281,6 +281,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 		}
 	}
 
+	fun openBreakdown(dimension: BreakdownDimension) {
+		_state.update {
+			it.copy(
+				screen = MainNavigation.reduce(it.screen, MainIntent.OpenBreakdown(dimension)),
+				message = null,
+			)
+		}
+	}
+
 	fun openSummary(filter: SummaryFilter) {
 		val screen = MainNavigation.reduce(_state.value.screen, MainIntent.OpenSummary(filter))
 		_state.value = _state.value.copy(

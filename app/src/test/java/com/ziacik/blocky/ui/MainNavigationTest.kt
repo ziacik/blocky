@@ -79,6 +79,44 @@ class MainNavigationTest {
 	}
 
 	@Test
+	fun openingBreakdownOpensSelectedDimension() {
+		assertEquals(
+			MainScreen.Breakdown(BreakdownDimension.Subcategory),
+			MainNavigation.reduce(
+				MainScreen.Overview,
+				MainIntent.OpenBreakdown(BreakdownDimension.Subcategory),
+			),
+		)
+	}
+
+	@Test
+	fun backFromBreakdownReturnsOverview() {
+		assertEquals(
+			MainScreen.Overview,
+			MainNavigation.reduce(
+				MainScreen.Breakdown(BreakdownDimension.Category),
+				MainIntent.Back,
+			),
+		)
+	}
+
+	@Test
+	fun summaryOpenedFromBreakdownReturnsToBreakdown() {
+		val breakdown = MainScreen.Breakdown(BreakdownDimension.Category)
+		val filter = SummaryFilter.Category("Potraviny")
+		val summary = MainScreen.SummaryItems(filter, breakdown)
+
+		assertEquals(
+			summary,
+			MainNavigation.reduce(breakdown, MainIntent.OpenSummary(filter)),
+		)
+		assertEquals(
+			breakdown,
+			MainNavigation.reduce(summary, MainIntent.Back),
+		)
+	}
+
+	@Test
 	fun selectingSettingsOpensSettings() {
 		assertEquals(
 			MainScreen.Settings,
