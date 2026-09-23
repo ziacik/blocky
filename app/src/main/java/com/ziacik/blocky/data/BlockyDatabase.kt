@@ -311,9 +311,9 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 		}
 	}
 
-	fun categoryTotals(limit: Int = 6): List<CategoryTotal> = readableDatabase.rawQuery(
-		"SELECT category, SUM(total_cents) total FROM items GROUP BY category ORDER BY total DESC LIMIT ?",
-		arrayOf(limit.toString()),
+	fun categoryTotals(): List<CategoryTotal> = readableDatabase.rawQuery(
+		"SELECT category, SUM(total_cents) total FROM items GROUP BY category ORDER BY total DESC",
+		null,
 	).use { cursor ->
 		buildList {
 			while (cursor.moveToNext()) {
@@ -322,16 +322,15 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 		}
 	}
 
-	fun subcategoryTotals(limit: Int = 12): List<SubcategoryTotal> = readableDatabase.rawQuery(
+	fun subcategoryTotals(): List<SubcategoryTotal> = readableDatabase.rawQuery(
 		"""
 		SELECT category, subcategory, SUM(total_cents) total
 		FROM items
 		WHERE subcategory IS NOT NULL AND TRIM(subcategory) <> ''
 		GROUP BY category, subcategory
 		ORDER BY total DESC
-		LIMIT ?
 		""".trimIndent(),
-		arrayOf(limit.toString()),
+		null,
 	).use { cursor ->
 		buildList {
 			while (cursor.moveToNext()) {

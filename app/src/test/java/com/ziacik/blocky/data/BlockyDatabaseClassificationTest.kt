@@ -109,6 +109,20 @@ class BlockyDatabaseClassificationTest {
 	}
 
 	@Test
+	fun categoryAndSubcategoryTotalsAreNotTruncated() {
+		val items = (1..13).map { index ->
+			item("ITEM-$index", "Subcategory-$index").copy(
+				category = "Category-$index",
+				totalCents = index.toLong(),
+			)
+		}
+		database.save(receipt(items = items))
+
+		assertEquals(13, database.categoryTotals().size)
+		assertEquals(13, database.subcategoryTotals().size)
+	}
+
+	@Test
 	fun aggregatesSpendingTypeTotalsIncludingUnclassifiedItems() {
 		database.save(
 			Receipt(
