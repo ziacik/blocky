@@ -48,6 +48,37 @@ class MainNavigationTest {
 	}
 
 	@Test
+	fun openingSummaryOpensSummaryItems() {
+		val filter = SummaryFilter.Category("Potraviny")
+
+		assertEquals(
+			MainScreen.SummaryItems(filter),
+			MainNavigation.reduce(MainScreen.Overview, MainIntent.OpenSummary(filter)),
+		)
+	}
+
+	@Test
+	fun backFromSummaryReturnsOverview() {
+		assertEquals(
+			MainScreen.Overview,
+			MainNavigation.reduce(
+				MainScreen.SummaryItems(SummaryFilter.Category("Potraviny")),
+				MainIntent.Back,
+			),
+		)
+	}
+
+	@Test
+	fun receiptOpenedFromSummaryReturnsToSummary() {
+		val summary = MainScreen.SummaryItems(SummaryFilter.Category("Potraviny"))
+
+		assertEquals(
+			MainScreen.ReceiptDetail("receipt-1", summary),
+			MainNavigation.reduce(summary, MainIntent.OpenReceipt("receipt-1")),
+		)
+	}
+
+	@Test
 	fun selectingSettingsOpensSettings() {
 		assertEquals(
 			MainScreen.Settings,

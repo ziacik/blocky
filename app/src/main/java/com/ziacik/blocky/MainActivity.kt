@@ -82,6 +82,8 @@ import com.ziacik.blocky.ui.HomeOverlayNavigation
 import com.ziacik.blocky.ui.MainScreen
 import com.ziacik.blocky.ui.MainUiState
 import com.ziacik.blocky.ui.MainViewModel
+import com.ziacik.blocky.ui.SummaryFilter
+import com.ziacik.blocky.ui.SummaryItems
 import com.ziacik.blocky.ui.theme.BlockyTheme
 import java.text.DateFormat
 import java.text.NumberFormat
@@ -133,6 +135,7 @@ class MainActivity : ComponentActivity() {
 
 				BackHandler(
 					enabled = state.screen is MainScreen.ReceiptDetail ||
+						state.screen is MainScreen.SummaryItems ||
 						state.screen == MainScreen.Settings,
 				) {
 					viewModel.back()
@@ -152,6 +155,7 @@ class MainActivity : ComponentActivity() {
 							state = state,
 							contentPadding = contentPadding,
 							onReceipt = viewModel::openReceipt,
+							onSummary = viewModel::openSummary,
 						)
 					}
 
@@ -186,6 +190,13 @@ class MainActivity : ComponentActivity() {
 							onReceipt = viewModel::openReceipt,
 						)
 					}
+
+					is MainScreen.SummaryItems -> SummaryItemsScreen(
+						state = state,
+						filter = screen.filter,
+						onBack = viewModel::back,
+						onReceipt = viewModel::openReceipt,
+					)
 
 					MainScreen.Settings -> SettingsScreen(
 						state = state,
@@ -374,6 +385,7 @@ private fun OverviewScreen(
 	state: MainUiState,
 	contentPadding: PaddingValues,
 	onReceipt: (String) -> Unit,
+	onSummary: (SummaryFilter) -> Unit,
 ) {
 	LazyColumn(
 		modifier = Modifier
@@ -414,6 +426,7 @@ private fun OverviewScreen(
 					subcategories = state.subcategories,
 					spendingTypes = state.spendingTypes,
 					totalCents = state.totalCents,
+					onSummary = onSummary,
 				)
 			}
 		}
@@ -443,17 +456,30 @@ private fun CategoryBreakdown(
 	subcategories: List<SubcategoryTotal>,
 	spendingTypes: List<SpendingTypeTotal>,
 	totalCents: Long,
+	onSummary: (SummaryFilter) -> Unit,
 ) {
 	var dimension by remember { mutableStateOf(BreakdownDimension.Category) }
 	val visible = when (dimension) {
 		BreakdownDimension.Category -> categories
 			.filter { it.totalCents > 0 }
-			.map { BreakdownTotal(it.category, it.totalCents) }
+			.map {
+				BreakdownTotal(
+					label = it.category,
+					totalCents = it.totalCents,
+					filter = SummaryFilter.Category(it.category),
+				)
+			}
 			.take(5)
 
 		BreakdownDimension.Subcategory -> subcategories
 			.filter { it.totalCents > 0 }
-			.map { BreakdownTotal(it.subcategory, it.totalCents) }
+			.map {
+				BreakdownTotal(
+					label = it.subcategory,
+					totalCents = it.totalCents,
+					filter = SummaryFilter.Subcategory(it.category, it.subcategory),
+				)
+			}
 			.take(5)
 
 		BreakdownDimension.SpendingType -> spendingTypes
@@ -462,6 +488,7 @@ private fun CategoryBreakdown(
 				BreakdownTotal(
 					label = it.spendingType?.let(::spendingTypeLabel) ?: "Nezaradené",
 					totalCents = it.totalCents,
+					filter = SummaryFilter.ExpenseType(it.spendingType),
 				)
 			}
 			.take(5)
@@ -512,7 +539,10 @@ private fun CategoryBreakdown(
 				0.0
 			}
 			Row(
-				modifier = Modifier.fillMaxWidth(),
+				modifier = Modifier
+					.fillMaxWidth()
+					.clickable { onSummary(entry.filter) }
+					.padding(vertical = 4.dp),
 				verticalAlignment = Alignment.CenterVertically,
 			) {
 				Box(
@@ -542,6 +572,14 @@ private fun CategoryBreakdown(
 					fontWeight = FontWeight.Bold,
 					textAlign = TextAlign.End,
 				)
+				Icon(
+					imageVector = Icons.Rounded.ChevronRight,
+					contentDescription = "Zobraziť položky",
+					modifier = Modifier
+						.padding(start = 7.dp)
+						.size(18.dp),
+					tint = MaterialTheme.colorScheme.onSurfaceVariant,
+				)
 			}
 		}
 	}
@@ -556,6 +594,7 @@ private enum class BreakdownDimension {
 private data class BreakdownTotal(
 	val label: String,
 	val totalCents: Long,
+	val filter: SummaryFilter,
 )
 
 @Composable
@@ -630,6 +669,69 @@ private fun ItemsScreen(
 				onClick = { onReceipt(item.receiptId) },
 			)
 			FlatDivider()
+		}
+	}
+}
+
+@Composable
+private fun SummaryItemsScreen(
+	state: MainUiState,
+	filter: SummaryFilter,
+	onBack: () -> Unit,
+	onReceipt: (String) -> Unit,
+) {
+	Scaffold(
+		containerColor = MaterialTheme.colorScheme.background,
+		topBar = {
+			Row(
+				modifier = Modifier
+					.fillMaxWidth()
+					.statusBarsPadding()
+					.height(64.dp)
+					.padding(start = 8.dp, end = 20.dp),
+				verticalAlignment = Alignment.CenterVertically,
+			) {
+				IconButton(onClick = onBack) {
+					Icon(
+						imageVector = Icons.Rounded.ArrowBack,
+						contentDescription = "Späť",
+					)
+				}
+				Text(
+					SummaryItems.title(filter),
+					style = MaterialTheme.typography.titleLarge,
+					maxLines = 1,
+					overflow = TextOverflow.Ellipsis,
+				)
+			}
+		},
+	) { contentPadding ->
+		LazyColumn(
+			modifier = Modifier
+				.fillMaxSize()
+				.padding(contentPadding),
+			contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 34.dp),
+		) {
+			if (state.loading && state.summaryItems.isEmpty()) {
+				item {
+					Box(
+						modifier = Modifier
+							.fillMaxWidth()
+							.padding(top = 48.dp),
+						contentAlignment = Alignment.Center,
+					) {
+						CircularProgressIndicator()
+					}
+				}
+			}
+
+			items(state.summaryItems) { item ->
+				ItemRow(
+					item = item,
+					onClick = { onReceipt(item.receiptId) },
+				)
+				FlatDivider()
+			}
 		}
 	}
 }

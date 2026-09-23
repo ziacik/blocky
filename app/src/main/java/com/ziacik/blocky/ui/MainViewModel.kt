@@ -43,6 +43,7 @@ data class MainUiState(
 	val spendingTypes: List<SpendingTypeTotal> = emptyList(),
 	val products: List<ProductTotal> = emptyList(),
 	val allItems: List<ItemListEntry> = emptyList(),
+	val summaryItems: List<ItemListEntry> = emptyList(),
 	val selectedReceipt: Receipt? = null,
 	val screen: MainScreen = MainScreen.Overview,
 	val woltConnected: Boolean = false,
@@ -275,6 +276,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 			_state.value = _state.value.copy(
 				loading = false,
 				allItems = items,
+				message = null,
+			)
+		}
+	}
+
+	fun openSummary(filter: SummaryFilter) {
+		val screen = MainNavigation.reduce(_state.value.screen, MainIntent.OpenSummary(filter))
+		_state.value = _state.value.copy(
+			screen = screen,
+			loading = true,
+			summaryItems = emptyList(),
+		)
+		viewModelScope.launch {
+			val items = withContext(Dispatchers.IO) { repository.allItems() }
+			_state.value = _state.value.copy(
+				loading = false,
+				summaryItems = SummaryItems.filter(items, filter),
 				message = null,
 			)
 		}
