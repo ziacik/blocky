@@ -115,6 +115,12 @@ class WoltIntegrationTest {
 	}
 
 	@Test
+	fun capsOrderHistoryLimitAtWoltMaximum() {
+		assertEquals(100, normalizeWoltOrderHistoryLimit(200))
+		assertEquals(100, normalizeWoltOrderHistoryLimit(100))
+		assertEquals(10, normalizeWoltOrderHistoryLimit(10))
+	}
+	@Test
 	fun mergesRotatedWoltCookiesWithoutDroppingOthers() {
 		val merged = WoltCookieJar.mergeSetCookieHeaders(
 			"a=1; __wtoken=old; __wrtoken=refresh; z=9",
