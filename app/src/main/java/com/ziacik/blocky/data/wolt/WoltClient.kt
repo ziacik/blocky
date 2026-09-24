@@ -1,5 +1,10 @@
 package com.ziacik.blocky.data.wolt
 
+internal const val WOLT_ORDER_HISTORY_MAX_LIMIT = 100
+
+internal fun normalizeWoltOrderHistoryLimit(limit: Int): Int =
+	limit.coerceIn(1, WOLT_ORDER_HISTORY_MAX_LIMIT)
+
 import android.os.SystemClock
 import org.json.JSONObject
 import java.io.IOException
@@ -19,10 +24,10 @@ class WoltClient(
 	private var rateLimitCount = 0
 
 	fun fetchOrderHistory(
-		limit: Int = 200,
+		limit: Int = WOLT_ORDER_HISTORY_MAX_LIMIT,
 		diagnostic: (String) -> Unit = {},
 	): String = authenticatedGet(
-		ORDER_HISTORY_ENDPOINT + "?limit=" + limit,
+		ORDER_HISTORY_ENDPOINT + "?limit=" + normalizeWoltOrderHistoryLimit(limit),
 		diagnostic,
 	)
 
