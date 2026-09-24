@@ -109,7 +109,7 @@ class WoltSyncService(
 		diagnostic("START: sťahujem všetky objednávky aktuálneho mesiaca")
 		diagnostic("history: načítavam objednávky")
 		val historyJson = client.fetchOrderHistory(
-			limit = 200,
+			limit = WOLT_ORDER_HISTORY_MAX_LIMIT,
 			diagnostic = diagnostic,
 		)
 		val historyOrders = parser.historyOrdersSince(historyJson, since)
@@ -182,7 +182,7 @@ class WoltSyncService(
 		)
 
 		val purchaseIds = parser.parseHistoryPurchaseIds(
-			client.fetchOrderHistory(limit = 200),
+			client.fetchOrderHistory(limit = WOLT_ORDER_HISTORY_MAX_LIMIT),
 			since,
 		)
 
