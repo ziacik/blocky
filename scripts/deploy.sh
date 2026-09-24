@@ -100,6 +100,6 @@ ADB=(adb -s "$TARGET")
 
 "${ADB[@]}" install -r "$APK"
 "${ADB[@]}" shell am force-stop "$PACKAGE"
-"${ADB[@]}" shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1 >/dev/null
+"${ADB[@]}" shell am start -n "$PACKAGE/.MainActivity" >/dev/null
 
 echo "Bločky deployed to $TARGET."
