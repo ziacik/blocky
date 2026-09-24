@@ -1,9 +1,5 @@
 package com.ziacik.blocky.data.wolt
 
-internal const val WOLT_ORDER_HISTORY_MAX_LIMIT = 100
-
-internal fun normalizeWoltOrderHistoryLimit(limit: Int): Int =
-	limit.coerceIn(1, WOLT_ORDER_HISTORY_MAX_LIMIT)
 
 import android.os.SystemClock
 import org.json.JSONObject
@@ -15,6 +11,11 @@ import java.nio.charset.StandardCharsets
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
+
+internal const val WOLT_ORDER_HISTORY_MAX_LIMIT = 100
+
+internal fun normalizeWoltOrderHistoryLimit(limit: Int): Int =
+	limit.coerceIn(1, WOLT_ORDER_HISTORY_MAX_LIMIT)
 
 class WoltClient(
 	private val sessionStore: WoltSessionStore,
