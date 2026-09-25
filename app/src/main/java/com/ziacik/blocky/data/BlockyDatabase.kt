@@ -16,7 +16,7 @@ import com.ziacik.blocky.model.SpendingType
 import com.ziacik.blocky.model.SpendingTypeTotal
 import com.ziacik.blocky.model.SubcategoryTotal
 
-class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", null, 3), ReceiptStore {
+class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", null, 4), ReceiptStore {
 	override fun onConfigure(db: SQLiteDatabase) {
 		super.onConfigure(db)
 		db.setForeignKeyConstraintsEnabled(true)
@@ -64,6 +64,44 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 		}
 		if (oldVersion < 3) {
 			db.execSQL("ALTER TABLE items ADD COLUMN classification_source TEXT")
+		}
+		if (oldVersion < 4) {
+			db.execSQL(
+				"""
+				INSERT INTO items (
+					receipt_id,
+					original_name,
+					canonical_name,
+					category,
+					subcategory,
+					quantity,
+					total_cents,
+					vat_rate,
+					spending_type,
+					classification_confidence,
+					classification_source
+				)
+				SELECT
+					r.receipt_id,
+					'Nerozpísaná platba',
+					'Nerozpísaná platba',
+					'Nezaradené',
+					NULL,
+					1.0,
+					r.total_cents,
+					NULL,
+					NULL,
+					NULL,
+					NULL
+				FROM receipts r
+				WHERE r.total_cents > 0
+				  AND NOT EXISTS (
+					SELECT 1
+					FROM items i
+					WHERE i.receipt_id = r.receipt_id
+				  )
+				""".trimIndent()
+			)
 		}
 	}
 
