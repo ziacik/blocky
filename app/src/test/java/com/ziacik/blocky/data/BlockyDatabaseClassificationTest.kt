@@ -1,5 +1,6 @@
 package com.ziacik.blocky.data
 
+import com.ziacik.blocky.model.CategoryTotal
 import com.ziacik.blocky.model.ClassificationSource
 import com.ziacik.blocky.model.Receipt
 import com.ziacik.blocky.model.ReceiptItem
@@ -30,6 +31,33 @@ class BlockyDatabaseClassificationTest {
 	@After
 	fun tearDown() {
 		database.close()
+	}
+
+	@Test
+	fun upgradeBackfillsItemlessReceiptsIntoStatistics() {
+		database.save(
+			Receipt(
+				id = "dental-1",
+				merchant = "FAMILY DENTAL CARE",
+				issuedAt = 1L,
+				totalCents = 16_800L,
+				items = emptyList(),
+				rawJson = "{}",
+			),
+		)
+
+		assertEquals(emptyList<ReceiptItem>(), database.receipt("dental-1")!!.items)
+
+		database.onUpgrade(database.writableDatabase, 3, 4)
+
+		val fallback = database.receipt("dental-1")!!.items.single()
+		assertEquals("Nerozpísaná platba", fallback.originalName)
+		assertEquals("Nezaradené", fallback.category)
+		assertEquals(16_800L, fallback.totalCents)
+		assertEquals(
+			listOf(CategoryTotal("Nezaradené", 16_800L)),
+			database.categoryTotals(),
+		)
 	}
 
 	@Test
