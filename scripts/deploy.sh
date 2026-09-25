@@ -54,43 +54,72 @@ if ! command -v adb >/dev/null 2>&1; then
 	exit 1
 fi
 
-mapfile -t DEVICES < <(
-	adb devices |
-		awk 'NR > 1 && $2 == "device" { print $1 }'
-)
+DEVICE_SERIALS=()
+DEVICE_LABELS=()
+
+while IFS= read -r line; do
+	[[ -z "$line" || "$line" == "List of devices attached" ]] && continue
+
+	if [[ "$line" =~ ^(.*[^[:space:]])[[:space:]]+device([[:space:]].*)?$ ]]; then
+		serial="${BASH_REMATCH[1]}"
+		details="${BASH_REMATCH[2]:-}"
+		model=""
+		product=""
+
+		if [[ "$details" =~ model:([^[:space:]]+) ]]; then
+			model="${BASH_REMATCH[1]}"
+		fi
+		if [[ "$details" =~ product:([^[:space:]]+) ]]; then
+			product="${BASH_REMATCH[1]}"
+		fi
+
+		DEVICE_SERIALS+=("$serial")
+
+		label=""
+		[[ -n "$model" ]] && label+="model:$model"
+		if [[ -n "$product" ]]; then
+			[[ -n "$label" ]] && label+="  "
+			label+="product:$product"
+		fi
+		[[ -n "$label" ]] && label+="  "
+		label+="$serial"
+		DEVICE_LABELS+=("$label")
+	fi
+done < <(adb devices -l)
 
 if [[ -n "$TARGET" ]]; then
-	if ! printf '%s\n' "${DEVICES[@]}" | grep -Fxq "$TARGET"; then
+	found=false
+	for serial in "${DEVICE_SERIALS[@]}"; do
+		if [[ "$serial" == "$TARGET" ]]; then
+			found=true
+			break
+		fi
+	done
+
+	if [[ "$found" != true ]]; then
 		echo "Target '$TARGET' is not connected and ready." >&2
 		echo "Available devices:" >&2
-		if [[ ${#DEVICES[@]} -eq 0 ]]; then
+		if [[ ${#DEVICE_SERIALS[@]} -eq 0 ]]; then
 			echo "  (none)" >&2
 		else
-			printf '  %s\n' "${DEVICES[@]}" >&2
+			printf '  %s\n' "${DEVICE_LABELS[@]}" >&2
 		fi
 		exit 1
 	fi
-elif [[ ${#DEVICES[@]} -eq 0 ]]; then
+elif [[ ${#DEVICE_SERIALS[@]} -eq 0 ]]; then
 	echo "No Android device/emulator connected." >&2
 	exit 1
-elif [[ ${#DEVICES[@]} -eq 1 ]]; then
-	TARGET="${DEVICES[0]}"
+elif [[ ${#DEVICE_SERIALS[@]} -eq 1 ]]; then
+	TARGET="${DEVICE_SERIALS[0]}"
 else
 	echo "Multiple Android devices/emulators connected:"
-	echo
-	for i in "${!DEVICES[@]}"; do
-		printf '  %d) %s\n' "$((i + 1))" "${DEVICES[$i]}"
-	done
-	echo
-
-	while true; do
-		read -r -p "Select target [1-${#DEVICES[@]}]: " SELECTION
-		if [[ "$SELECTION" =~ ^[0-9]+$ ]] &&
-			(( SELECTION >= 1 && SELECTION <= ${#DEVICES[@]} )); then
-			TARGET="${DEVICES[$((SELECTION - 1))]}"
+	PS3="Select target: "
+	select label in "${DEVICE_LABELS[@]}"; do
+		if [[ -n "$label" ]]; then
+			TARGET="${DEVICE_SERIALS[REPLY - 1]}"
 			break
 		fi
-		echo "Invalid selection."
+		echo "Invalid selection." >&2
 	done
 fi
 
