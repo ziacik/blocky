@@ -10,6 +10,7 @@ import com.ziacik.blocky.model.ReceiptSummary
 import com.ziacik.blocky.model.SpendingType
 import com.ziacik.blocky.model.SpendingTypeTotal
 import com.ziacik.blocky.model.SubcategoryTotal
+import java.time.ZoneId
 
 interface ReceiptLookupClient {
 	fun findReceipt(qrValue: String): String
@@ -24,6 +25,7 @@ class ReceiptRepository(
 	private val parser: ReceiptParser,
 	private val database: BlockyDatabase,
 	private val ingestor: ReceiptIngestor,
+	private val zoneId: ZoneId = ZoneId.systemDefault(),
 ) {
 	fun import(qrValue: String): Receipt {
 		val json = client.findReceipt(qrValue)
@@ -32,7 +34,15 @@ class ReceiptRepository(
 
 	fun receipt(receiptId: String): Receipt? = database.receipt(receiptId)
 
-	fun allItems(): List<ItemListEntry> = database.allItems()
+	fun allItems(month: ExpenseMonth): List<ItemListEntry> {
+		val range = month.range(zoneId)
+		return database.allItemsBetween(range.startInclusive, range.endExclusive)
+	}
+
+	fun availableMonths(currentMonth: ExpenseMonth = ExpenseMonth.current()): List<ExpenseMonth> =
+		(database.receiptIssuedAt().map { ExpenseMonth.fromMillis(it, zoneId) } + currentMonth)
+			.distinct()
+			.sortedWith(compareByDescending<ExpenseMonth> { it.year }.thenByDescending { it.month })
 
 	fun correctItemClassification(
 		receiptId: String,
@@ -65,14 +75,17 @@ class ReceiptRepository(
 		return categorized
 	}
 
-	fun snapshot(): RepositorySnapshot = RepositorySnapshot(
-		totalCents = database.totalCents(),
-		receipts = database.receiptSummaries(),
-		categories = database.categoryTotals(),
-		subcategories = database.subcategoryTotals(),
-		spendingTypes = database.spendingTypeTotals(),
-		products = database.productTotals(),
-	)
+	fun snapshot(month: ExpenseMonth): RepositorySnapshot {
+		val range = month.range(zoneId)
+		return RepositorySnapshot(
+			totalCents = database.totalCentsBetween(range.startInclusive, range.endExclusive),
+			receipts = database.receiptSummariesBetween(range.startInclusive, range.endExclusive),
+			categories = database.categoryTotalsBetween(range.startInclusive, range.endExclusive),
+			subcategories = database.subcategoryTotalsBetween(range.startInclusive, range.endExclusive),
+			spendingTypes = database.spendingTypeTotalsBetween(range.startInclusive, range.endExclusive),
+			products = database.productTotalsBetween(range.startInclusive, range.endExclusive),
+		)
+	}
 }
 
 data class RepositorySnapshot(
