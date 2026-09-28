@@ -9,6 +9,7 @@ import com.ziacik.blocky.categorization.ReceiptIngestor
 import com.ziacik.blocky.data.BlockyDatabase
 import com.ziacik.blocky.data.EkasaClient
 import com.ziacik.blocky.data.EkasaReceiptParser
+import com.ziacik.blocky.data.ExpenseMonth
 import com.ziacik.blocky.data.ReceiptRepository
 import com.ziacik.blocky.data.RepositorySnapshot
 import com.ziacik.blocky.data.wolt.WoltSessionStore
@@ -36,6 +37,8 @@ import java.util.Locale
 data class MainUiState(
 	val loading: Boolean = false,
 	val woltBusy: Boolean = false,
+	val selectedMonth: ExpenseMonth = ExpenseMonth.current(),
+	val availableMonths: List<ExpenseMonth> = listOf(ExpenseMonth.current()),
 	val totalCents: Long = 0,
 	val receipts: List<ReceiptSummary> = emptyList(),
 	val categories: List<CategoryTotal> = emptyList(),
@@ -81,7 +84,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 			val result = runCatching {
 				withContext(Dispatchers.IO) {
 					repository.import(qrValue)
-					repository.snapshot()
+					repository.snapshot(_state.value.selectedMonth)
 				}
 			}
 			result.onSuccess { snapshot ->
@@ -112,7 +115,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 			val result = runCatching {
 				withContext(Dispatchers.IO) {
 					val receipt = woltSyncService.importLatestOrder(::addWoltDiagnostic)
-					receipt to repository.snapshot()
+					receipt to repository.snapshot(_state.value.selectedMonth)
 				}
 			}
 
@@ -166,7 +169,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 			val result = runCatching {
 				withContext(Dispatchers.IO) {
 					val imported = woltSyncService.importCurrentMonth(::addWoltDiagnostic)
-					imported to repository.snapshot()
+					imported to repository.snapshot(_state.value.selectedMonth)
 				}
 			}
 
@@ -195,7 +198,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 		viewModelScope.launch {
 			val snapshot = withContext(Dispatchers.IO) {
 				repository.categorizePending()
-				repository.snapshot()
+				repository.snapshot(_state.value.selectedMonth)
 			}
 			applySnapshot(snapshot)
 		}
@@ -235,7 +238,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 						subcategory = subcategory,
 						spendingType = spendingType,
 					)
-					Triple(receipt, repository.snapshot(), repository.allItems())
+					Triple(receipt, repository.snapshot(_state.value.selectedMonth), repository.allItems(_state.value.selectedMonth))
 				}
 			}
 
@@ -275,13 +278,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 	}
 
 	fun openAllItems() {
-		val screen = MainNavigation.reduce(_state.value.screen, MainIntent.OpenAllItems)
-		_state.value = _state.value.copy(screen = screen, loading = true)
-		viewModelScope.launch {
-			val items = withContext(Dispatchers.IO) { repository.allItems() }
-			_state.value = _state.value.copy(
-				loading = false,
-				allItems = items,
+		_state.update {
+			it.copy(
+				screen = MainNavigation.reduce(it.screen, MainIntent.OpenAllItems),
 				message = null,
 			)
 		}
@@ -298,18 +297,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
 	fun openSummary(filter: SummaryFilter) {
 		val screen = MainNavigation.reduce(_state.value.screen, MainIntent.OpenSummary(filter))
-		_state.value = _state.value.copy(
-			screen = screen,
-			loading = true,
-			summaryItems = emptyList(),
-		)
-		viewModelScope.launch {
-			val items = withContext(Dispatchers.IO) { repository.allItems() }
-			_state.value = _state.value.copy(
-				loading = false,
-				summaryItems = SummaryItems.filter(items, filter),
+		_state.update {
+			it.copy(
+				screen = screen,
+				summaryItems = SummaryItems.filter(it.allItems, filter),
 				message = null,
 			)
+		}
+	}
+
+
+	fun selectMonth(month: ExpenseMonth) {
+		if (month == _state.value.selectedMonth) return
+
+		_state.update {
+			it.copy(
+				selectedMonth = month,
+				loading = true,
+				message = null,
+			)
+		}
+		viewModelScope.launch {
+			val snapshot = withContext(Dispatchers.IO) { repository.snapshot(month) }
+			if (_state.value.selectedMonth == month) {
+				applySnapshot(snapshot)
+			}
 		}
 	}
 
@@ -336,7 +348,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
 	fun refresh() {
 		viewModelScope.launch {
-			val snapshot = withContext(Dispatchers.IO) { repository.snapshot() }
+			val snapshot = withContext(Dispatchers.IO) { repository.snapshot(_state.value.selectedMonth) }
 			applySnapshot(snapshot)
 		}
 	}
@@ -359,8 +371,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 		snapshot: RepositorySnapshot,
 		message: String? = _state.value.message,
 	) {
-		_state.update {
-			it.copy(
+		val month = _state.value.selectedMonth
+		val items = repository.allItems(month)
+		_state.update { state ->
+			state.copy(
 				loading = false,
 				totalCents = snapshot.totalCents,
 				receipts = snapshot.receipts,
@@ -368,6 +382,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 				subcategories = snapshot.subcategories,
 				spendingTypes = snapshot.spendingTypes,
 				products = snapshot.products,
+				allItems = items,
+				summaryItems = SummaryItems.forScreen(items, state.screen) ?: state.summaryItems,
+				availableMonths = snapshot.availableMonths,
 				woltConnected = woltSessionStore.isConnected(),
 				message = message,
 			)
