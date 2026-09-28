@@ -84,6 +84,7 @@ class ReceiptRepository(
 			subcategories = database.subcategoryTotalsBetween(range.startInclusive, range.endExclusive),
 			spendingTypes = database.spendingTypeTotalsBetween(range.startInclusive, range.endExclusive),
 			products = database.productTotalsBetween(range.startInclusive, range.endExclusive),
+			availableMonths = availableMonths(),
 		)
 	}
 }
@@ -95,4 +96,5 @@ data class RepositorySnapshot(
 	val subcategories: List<SubcategoryTotal>,
 	val spendingTypes: List<SpendingTypeTotal>,
 	val products: List<ProductTotal>,
+	val availableMonths: List<ExpenseMonth>,
 )
