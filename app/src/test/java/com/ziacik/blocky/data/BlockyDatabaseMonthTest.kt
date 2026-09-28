@@ -36,8 +36,8 @@ class BlockyDatabaseMonthTest {
 		val month = ExpenseMonth(2026, 9)
 		val range = month.range(zoneId)
 
-		assertEquals(at(2026, 9, 1), range.startInclusive)
-		assertEquals(at(2026, 10, 1), range.endExclusive)
+		assertEquals(startOfDay(2026, 9, 1), range.startInclusive)
+		assertEquals(startOfDay(2026, 10, 1), range.endExclusive)
 	}
 
 	@Test
@@ -52,6 +52,11 @@ class BlockyDatabaseMonthTest {
 		assertEquals(listOf("sep"), database.allItemsBetween(range.startInclusive, range.endExclusive).map { it.receiptId })
 		assertEquals(300L, database.categoryTotalsBetween(range.startInclusive, range.endExclusive).single().totalCents)
 	}
+
+	private fun startOfDay(year: Int, month: Int, day: Int): Long =
+		ZonedDateTime.of(year, month, day, 0, 0, 0, 0, zoneId)
+			.toInstant()
+			.toEpochMilli()
 
 	private fun at(year: Int, month: Int, day: Int): Long =
 		ZonedDateTime.of(year, month, day, 12, 0, 0, 0, zoneId)
