@@ -16,7 +16,7 @@ import com.ziacik.blocky.model.SpendingType
 import com.ziacik.blocky.model.SpendingTypeTotal
 import com.ziacik.blocky.model.SubcategoryTotal
 
-class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", null, 4), ReceiptStore {
+class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", null, 5), ReceiptStore {
 	override fun onConfigure(db: SQLiteDatabase) {
 		super.onConfigure(db)
 		db.setForeignKeyConstraintsEnabled(true)
@@ -53,6 +53,7 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 			)
 			""".trimIndent()
 		)
+		db.execSQL("CREATE INDEX idx_receipts_issued_at ON receipts(issued_at)")
 		db.execSQL("CREATE INDEX idx_items_receipt_id ON items(receipt_id)")
 		db.execSQL("CREATE INDEX idx_items_category ON items(category)")
 	}
@@ -102,6 +103,9 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 				  )
 				""".trimIndent()
 			)
+		}
+		if (oldVersion < 5) {
+			db.execSQL("CREATE INDEX IF NOT EXISTS idx_receipts_issued_at ON receipts(issued_at)")
 		}
 	}
 
