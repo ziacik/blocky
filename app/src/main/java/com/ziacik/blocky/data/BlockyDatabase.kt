@@ -404,6 +404,190 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 		}
 	}
 
+
+	fun receiptIssuedAt(): List<Long> = readableDatabase.rawQuery(
+		"SELECT issued_at FROM receipts ORDER BY issued_at DESC",
+		null,
+	).use { cursor ->
+		buildList {
+			while (cursor.moveToNext()) {
+				add(cursor.getLong(0))
+			}
+		}
+	}
+
+	fun allItemsBetween(
+		startInclusive: Long,
+		endExclusive: Long,
+		limit: Int = 1_000,
+	): List<ItemListEntry> = readableDatabase.rawQuery(
+		"""
+		SELECT i.receipt_id, r.merchant, r.issued_at, i.original_name, i.canonical_name,
+		       i.category, i.subcategory, i.quantity, i.total_cents,
+		       i.spending_type, i.classification_confidence, i.classification_source
+		FROM items i
+		JOIN receipts r ON r.receipt_id = i.receipt_id
+		WHERE r.issued_at >= ? AND r.issued_at < ?
+		ORDER BY r.issued_at DESC, i.id DESC
+		LIMIT ?
+		""".trimIndent(),
+		arrayOf(startInclusive.toString(), endExclusive.toString(), limit.toString()),
+	).use { cursor ->
+		buildList {
+			while (cursor.moveToNext()) {
+				add(
+					ItemListEntry(
+						receiptId = cursor.getString(0),
+						merchant = cursor.getString(1),
+						issuedAt = cursor.getLong(2),
+						originalName = cursor.getString(3),
+						canonicalName = cursor.getString(4),
+						category = cursor.getString(5),
+						subcategory = cursor.getString(6),
+						quantity = cursor.getDouble(7),
+						totalCents = cursor.getLong(8),
+						spendingType = enumOrNull<SpendingType>(cursor, 9),
+						classificationConfidence = if (cursor.isNull(10)) null else cursor.getDouble(10),
+						classificationSource = enumOrNull<ClassificationSource>(cursor, 11),
+					)
+				)
+			}
+		}
+	}
+
+	fun receiptSummariesBetween(
+		startInclusive: Long,
+		endExclusive: Long,
+		limit: Int = 500,
+	): List<ReceiptSummary> = readableDatabase.rawQuery(
+		"""
+		SELECT receipt_id, merchant, issued_at, total_cents
+		FROM receipts
+		WHERE issued_at >= ? AND issued_at < ?
+		ORDER BY issued_at DESC
+		LIMIT ?
+		""".trimIndent(),
+		arrayOf(startInclusive.toString(), endExclusive.toString(), limit.toString()),
+	).use { cursor ->
+		buildList {
+			while (cursor.moveToNext()) {
+				add(
+					ReceiptSummary(
+						id = cursor.getString(0),
+						merchant = cursor.getString(1),
+						issuedAt = cursor.getLong(2),
+						totalCents = cursor.getLong(3),
+					)
+				)
+			}
+		}
+	}
+
+	fun totalCentsBetween(startInclusive: Long, endExclusive: Long): Long = readableDatabase.rawQuery(
+		"""
+		SELECT COALESCE(SUM(total_cents), 0)
+		FROM receipts
+		WHERE issued_at >= ? AND issued_at < ?
+		""".trimIndent(),
+		arrayOf(startInclusive.toString(), endExclusive.toString()),
+	).use { cursor ->
+		cursor.moveToFirst()
+		cursor.getLong(0)
+	}
+
+	fun productTotalsBetween(
+		startInclusive: Long,
+		endExclusive: Long,
+		limit: Int = 6,
+	): List<ProductTotal> = readableDatabase.rawQuery(
+		"""
+		SELECT i.canonical_name, SUM(i.total_cents) total
+		FROM items i
+		JOIN receipts r ON r.receipt_id = i.receipt_id
+		WHERE r.issued_at >= ? AND r.issued_at < ?
+		GROUP BY i.canonical_name
+		ORDER BY total DESC
+		LIMIT ?
+		""".trimIndent(),
+		arrayOf(startInclusive.toString(), endExclusive.toString(), limit.toString()),
+	).use { cursor ->
+		buildList {
+			while (cursor.moveToNext()) {
+				add(ProductTotal(cursor.getString(0), cursor.getLong(1)))
+			}
+		}
+	}
+
+	fun categoryTotalsBetween(startInclusive: Long, endExclusive: Long): List<CategoryTotal> =
+		readableDatabase.rawQuery(
+			"""
+			SELECT i.category, SUM(i.total_cents) total
+			FROM items i
+			JOIN receipts r ON r.receipt_id = i.receipt_id
+			WHERE r.issued_at >= ? AND r.issued_at < ?
+			GROUP BY i.category
+			ORDER BY total DESC
+			""".trimIndent(),
+			arrayOf(startInclusive.toString(), endExclusive.toString()),
+		).use { cursor ->
+			buildList {
+				while (cursor.moveToNext()) {
+					add(CategoryTotal(cursor.getString(0), cursor.getLong(1)))
+				}
+			}
+		}
+
+	fun subcategoryTotalsBetween(startInclusive: Long, endExclusive: Long): List<SubcategoryTotal> =
+		readableDatabase.rawQuery(
+			"""
+			SELECT i.category, i.subcategory, SUM(i.total_cents) total
+			FROM items i
+			JOIN receipts r ON r.receipt_id = i.receipt_id
+			WHERE r.issued_at >= ? AND r.issued_at < ?
+			  AND i.subcategory IS NOT NULL
+			  AND TRIM(i.subcategory) <> ''
+			GROUP BY i.category, i.subcategory
+			ORDER BY total DESC
+			""".trimIndent(),
+			arrayOf(startInclusive.toString(), endExclusive.toString()),
+		).use { cursor ->
+			buildList {
+				while (cursor.moveToNext()) {
+					add(
+						SubcategoryTotal(
+							category = cursor.getString(0),
+							subcategory = cursor.getString(1),
+							totalCents = cursor.getLong(2),
+						)
+					)
+				}
+			}
+		}
+
+	fun spendingTypeTotalsBetween(startInclusive: Long, endExclusive: Long): List<SpendingTypeTotal> =
+		readableDatabase.rawQuery(
+			"""
+			SELECT i.spending_type, SUM(i.total_cents) total
+			FROM items i
+			JOIN receipts r ON r.receipt_id = i.receipt_id
+			WHERE r.issued_at >= ? AND r.issued_at < ?
+			GROUP BY i.spending_type
+			ORDER BY total DESC
+			""".trimIndent(),
+			arrayOf(startInclusive.toString(), endExclusive.toString()),
+		).use { cursor ->
+			buildList {
+				while (cursor.moveToNext()) {
+					add(
+						SpendingTypeTotal(
+							spendingType = enumOrNull<SpendingType>(cursor, 0),
+							totalCents = cursor.getLong(1),
+						)
+					)
+				}
+			}
+		}
+
 	private fun manualOverrides(receiptId: String): Map<Int, ManualOverride> = readableDatabase.rawQuery(
 		"""
 		SELECT canonical_name, category, subcategory, spending_type, classification_source
