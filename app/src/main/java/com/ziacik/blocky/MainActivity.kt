@@ -67,6 +67,7 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import com.ziacik.blocky.categorization.ExpenseTaxonomy
+import com.ziacik.blocky.data.ExpenseMonth
 import com.ziacik.blocky.data.wolt.WoltSyncScheduler
 import com.ziacik.blocky.model.CategoryTotal
 import com.ziacik.blocky.model.ItemListEntry
@@ -91,6 +92,8 @@ import com.ziacik.blocky.ui.SummaryItems
 import com.ziacik.blocky.ui.theme.BlockyTheme
 import java.text.DateFormat
 import java.text.NumberFormat
+import java.time.YearMonth
+import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Locale
 
@@ -154,6 +157,7 @@ class MainActivity : ComponentActivity() {
 						onReceipts = viewModel::openReceipts,
 						onItems = viewModel::openAllItems,
 						onSettings = viewModel::openSettings,
+						onMonth = viewModel::selectMonth,
 						onScan = scan,
 					) { contentPadding ->
 						OverviewScreen(
@@ -172,6 +176,7 @@ class MainActivity : ComponentActivity() {
 						onReceipts = viewModel::openReceipts,
 						onItems = viewModel::openAllItems,
 						onSettings = viewModel::openSettings,
+						onMonth = viewModel::selectMonth,
 						onScan = scan,
 					) { contentPadding ->
 						ReceiptsScreen(
@@ -188,6 +193,7 @@ class MainActivity : ComponentActivity() {
 						onReceipts = viewModel::openReceipts,
 						onItems = viewModel::openAllItems,
 						onSettings = viewModel::openSettings,
+						onMonth = viewModel::selectMonth,
 						onScan = scan,
 					) { contentPadding ->
 						ItemsScreen(
@@ -245,13 +251,19 @@ private fun PrimaryShell(
 	onReceipts: () -> Unit,
 	onItems: () -> Unit,
 	onSettings: () -> Unit,
+	onMonth: (ExpenseMonth) -> Unit,
 	onScan: () -> Unit,
 	content: @Composable (PaddingValues) -> Unit,
 ) {
 	Scaffold(
 		containerColor = MaterialTheme.colorScheme.background,
 		topBar = {
-			BrandHeader(onSettings = onSettings)
+			BrandHeader(
+				selectedMonth = state.selectedMonth,
+				availableMonths = state.availableMonths,
+				onMonth = onMonth,
+				onSettings = onSettings,
+			)
 		},
 		bottomBar = {
 			BlockyDock(
@@ -268,7 +280,14 @@ private fun PrimaryShell(
 }
 
 @Composable
-private fun BrandHeader(onSettings: () -> Unit) {
+private fun BrandHeader(
+	selectedMonth: ExpenseMonth,
+	availableMonths: List<ExpenseMonth>,
+	onMonth: (ExpenseMonth) -> Unit,
+	onSettings: () -> Unit,
+) {
+	var monthExpanded by remember { mutableStateOf(false) }
+
 	Row(
 		modifier = Modifier
 			.fillMaxWidth()
@@ -292,6 +311,30 @@ private fun BrandHeader(onSettings: () -> Unit) {
 			fontWeight = FontWeight.Black,
 			letterSpacing = (-0.6).sp,
 		)
+
+		Box {
+			TextButton(onClick = { monthExpanded = true }) {
+				Text(
+					monthLabel(selectedMonth),
+					style = MaterialTheme.typography.labelLarge,
+				)
+			}
+			DropdownMenu(
+				expanded = monthExpanded,
+				onDismissRequest = { monthExpanded = false },
+			) {
+				availableMonths.forEach { month ->
+					DropdownMenuItem(
+						text = { Text(monthLabel(month, long = true)) },
+						onClick = {
+							monthExpanded = false
+							onMonth(month)
+						},
+					)
+				}
+			}
+		}
+
 		IconButton(
 			onClick = onSettings,
 			modifier = Modifier.size(56.dp),
@@ -1428,6 +1471,15 @@ private fun spendingTypeLabel(spendingType: SpendingType): String = when (spendi
 	SpendingType.ESSENTIAL -> "Nevyhnutné"
 	SpendingType.REGULAR -> "Bežné"
 	SpendingType.DISCRETIONARY -> "Voliteľné"
+}
+
+private fun monthLabel(month: ExpenseMonth, long: Boolean = false): String {
+	val pattern = if (long) "LLLL yyyy" else "MMM yyyy"
+	return YearMonth.of(month.year, month.month)
+		.format(DateTimeFormatter.ofPattern(pattern, Locale("sk", "SK")))
+		.replaceFirstChar { value ->
+			if (long) value.titlecase(Locale("sk", "SK")) else value.uppercase(Locale("sk", "SK"))
+		}
 }
 
 private fun money(cents: Long): String = NumberFormat.getCurrencyInstance(Locale("sk", "SK"))
