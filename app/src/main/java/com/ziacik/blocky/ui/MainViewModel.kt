@@ -238,19 +238,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 						subcategory = subcategory,
 						spendingType = spendingType,
 					)
-					Triple(receipt, repository.snapshot(_state.value.selectedMonth), repository.allItems(_state.value.selectedMonth))
+					receipt to repository.snapshot(_state.value.selectedMonth)
 				}
 			}
 
-			result.onSuccess { (receipt, snapshot, items) ->
+			result.onSuccess { (receipt, snapshot) ->
 				applySnapshot(snapshot, "Kategória upravená.")
-				_state.update { state ->
-					state.copy(
-						selectedReceipt = receipt,
-						allItems = items,
-						summaryItems = SummaryItems.forScreen(items, state.screen) ?: state.summaryItems,
-					)
-				}
+				_state.update { it.copy(selectedReceipt = receipt) }
 			}.onFailure { error ->
 				_state.update {
 					it.copy(message = error.message ?: "Kategóriu sa nepodarilo upraviť.")
@@ -371,8 +365,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 		snapshot: RepositorySnapshot,
 		message: String? = _state.value.message,
 	) {
-		val month = _state.value.selectedMonth
-		val items = repository.allItems(month)
+		val items = snapshot.items
 		_state.update { state ->
 			state.copy(
 				loading = false,
