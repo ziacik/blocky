@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<string name="wolt_connect">Pripojiť Wolt</string>
+	<string name="wolt_login_first">Najprv sa vo Wolte prihlás.</string>
+	<string name="wolt_connected">Wolt pripojený. Zatiaľ nič nesťahujem.</string>
+</resources>
