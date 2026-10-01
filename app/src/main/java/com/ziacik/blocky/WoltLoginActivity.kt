@@ -1,5 +1,6 @@
 package com.ziacik.blocky
 
+import android.annotation.SuppressLint
 import android.os.Bundle
 import android.webkit.CookieManager
 import android.webkit.WebResourceRequest
@@ -17,6 +18,7 @@ import com.ziacik.blocky.data.wolt.WoltWebNavigation
 class WoltLoginActivity : ComponentActivity() {
 	private lateinit var webView: WebView
 
+	@SuppressLint("SetJavaScriptEnabled")
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
 
@@ -43,7 +45,7 @@ class WoltLoginActivity : ComponentActivity() {
 			setAcceptThirdPartyCookies(webView, true)
 		}
 		val connectButton = Button(this).apply {
-			text = "Pripojiť Wolt"
+			text = this@WoltLoginActivity.getString(R.string.wolt_connect)
 		}
 		val layout = LinearLayout(this).apply {
 			orientation = LinearLayout.VERTICAL
@@ -75,7 +77,7 @@ class WoltLoginActivity : ComponentActivity() {
 				)
 			)
 			if (!cookies.contains("__wtoken=")) {
-				Toast.makeText(this, "Najprv sa vo Wolte prihlás.", Toast.LENGTH_SHORT).show()
+				Toast.makeText(this, R.string.wolt_login_first, Toast.LENGTH_SHORT).show()
 				return@setOnClickListener
 			}
 
@@ -83,7 +85,7 @@ class WoltLoginActivity : ComponentActivity() {
 			WoltSyncScheduler.disable(this)
 			Toast.makeText(
 				this,
-				"Wolt pripojený. Zatiaľ nič nesťahujem.",
+				R.string.wolt_connected,
 				Toast.LENGTH_LONG,
 			).show()
 			finish()
