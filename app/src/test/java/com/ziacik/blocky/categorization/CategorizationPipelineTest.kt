@@ -53,8 +53,9 @@ class CategorizationPipelineTest {
 		val result = categorizer.categorize(receipt())
 
 		assertEquals("https://example.test/categorize", requestedEndpoint)
-		assert(requestBody!!.contains("\"merchant\":\"dm drogerie markt\""))
-		assert(requestBody!!.contains("\"name\":\"ROHLÍK BIELY 50G\""))
+		val body = requireNotNull(requestBody)
+		assert(body.contains("\"merchant\":\"dm drogerie markt\""))
+		assert(body.contains("\"name\":\"ROHLÍK BIELY 50G\""))
 		assertEquals("Pečivo", result.items.single().subcategory)
 		assertEquals(SpendingType.ESSENTIAL, result.items.single().spendingType)
 	}
