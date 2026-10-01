@@ -349,7 +349,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
 	override fun onCleared() {
 		database.close()
-		super.onCleared()
 	}
 
 	private fun addWoltDiagnostic(line: String) {
