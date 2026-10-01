@@ -84,6 +84,7 @@ class OpenAiCategorizationClient(
 		canonicalName must be a concise, human-readable Slovak product name.
 		ESSENTIAL means a basic necessary purchase, REGULAR means an ordinary recurring purchase,
 		and DISCRETIONARY means a purchase that could reasonably be omitted.
+		Use subcategory Káva for packaged coffee products such as whole-bean, ground, instant or capsule coffee; do not classify them as Nealkoholické nápoje.
 		Use only categories and subcategories permitted by the supplied output schema.
 	""".trimIndent()
 

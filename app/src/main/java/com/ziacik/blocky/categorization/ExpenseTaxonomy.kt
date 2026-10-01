@@ -13,6 +13,7 @@ object ExpenseTaxonomy {
 			"Trvanlivé potraviny",
 			"Sladkosti",
 			"Slané snacky",
+			"Káva",
 			"Nealkoholické nápoje",
 			"Alkohol",
 			"Hotové jedlá",
