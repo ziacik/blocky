@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import androidx.core.database.sqlite.transaction
 import com.ziacik.blocky.categorization.ReceiptStore
 import com.ziacik.blocky.model.CategoryTotal
 import com.ziacik.blocky.model.ClassificationSource
@@ -122,8 +123,7 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 	}
 
 	override fun save(receipt: Receipt) {
-		writableDatabase.beginTransaction()
-		try {
+		writableDatabase.transaction {
 			val manualOverrides = manualOverrides(receipt.id)
 			val receiptValues = ContentValues().apply {
 				put("receipt_id", receipt.id)
@@ -157,9 +157,6 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 				}
 				writableDatabase.insertOrThrow("items", null, values)
 			}
-			writableDatabase.setTransactionSuccessful()
-		} finally {
-			writableDatabase.endTransaction()
 		}
 	}
 
