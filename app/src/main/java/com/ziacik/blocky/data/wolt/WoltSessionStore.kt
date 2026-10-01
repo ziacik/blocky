@@ -4,6 +4,7 @@ import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import androidx.core.content.edit
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -15,18 +16,18 @@ class WoltSessionStore(context: Context) {
 		.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
 
 	fun saveCookies(cookies: String) {
-		preferences.edit().putString(KEY_COOKIES, encrypt(cookies)).apply()
+		preferences.edit { putString(KEY_COOKIES, encrypt(cookies)) }
 	}
 
 	fun cookies(): String? = preferences.getString(KEY_COOKIES, null)
 		?.let { encrypted -> runCatching { decrypt(encrypted) }.getOrNull() }
 
 	fun clearCookies() {
-		preferences.edit()
-			.remove(KEY_COOKIES)
-			.remove(KEY_LAST_SYNC)
-			.remove(KEY_LAST_SYNC_V2)
-			.apply()
+		preferences.edit {
+			remove(KEY_COOKIES)
+			remove(KEY_LAST_SYNC)
+			remove(KEY_LAST_SYNC_V2)
+		}
 	}
 
 	fun isConnected(): Boolean = cookies()?.contains("__wtoken=") == true
@@ -35,7 +36,7 @@ class WoltSessionStore(context: Context) {
 		preferences.takeIf { it.contains(KEY_LAST_SYNC_V2) }?.getLong(KEY_LAST_SYNC_V2, 0L)
 
 	fun markSuccessfulSync(timestampMillis: Long) {
-		preferences.edit().putLong(KEY_LAST_SYNC_V2, timestampMillis).apply()
+		preferences.edit { putLong(KEY_LAST_SYNC_V2, timestampMillis) }
 	}
 
 	private fun encrypt(value: String): String {
