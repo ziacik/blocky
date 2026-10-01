@@ -29,7 +29,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Settings
@@ -137,7 +137,6 @@ class MainActivity : ComponentActivity() {
 						.addOnFailureListener { error ->
 							viewModel.showMessage(error.message ?: "Skenovanie zlyhalo.")
 						}
-					Unit
 				}
 
 				BackHandler(
@@ -613,7 +612,7 @@ private fun BreakdownScreen(
 			) {
 				IconButton(onClick = onBack) {
 					Icon(
-						imageVector = Icons.Rounded.ArrowBack,
+						imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
 						contentDescription = "Späť",
 					)
 				}
@@ -680,7 +679,7 @@ private fun BreakdownRow(
 			fontWeight = FontWeight.Medium,
 		)
 		Text(
-			String.format(Locale("sk", "SK"), "%.0f%%", percentage),
+			String.format(SlovakLocale, "%.0f%%", percentage),
 			modifier = Modifier.width(42.dp),
 			style = MaterialTheme.typography.bodySmall,
 			color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -801,7 +800,7 @@ private fun SummaryItemsScreen(
 			) {
 				IconButton(onClick = onBack) {
 					Icon(
-						imageVector = Icons.Rounded.ArrowBack,
+						imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
 						contentDescription = "Späť",
 					)
 				}
@@ -867,7 +866,7 @@ private fun SettingsScreen(
 			) {
 				IconButton(onClick = onBack) {
 					Icon(
-						imageVector = Icons.Rounded.ArrowBack,
+						imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
 						contentDescription = "Späť",
 					)
 				}
@@ -971,7 +970,7 @@ private fun SettingsRow(
 			)
 		}
 		Text(
-			action.uppercase(Locale("sk", "SK")),
+			action.uppercase(SlovakLocale),
 			style = MaterialTheme.typography.labelMedium,
 			color = if (enabled) {
 				MaterialTheme.colorScheme.primary
@@ -1006,7 +1005,7 @@ private fun ReceiptDetailScreen(
 			) {
 				IconButton(onClick = onBack) {
 					Icon(
-						imageVector = Icons.Rounded.ArrowBack,
+						imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
 						contentDescription = "Späť",
 					)
 				}
@@ -1193,7 +1192,7 @@ private fun ItemRow(
 				overflow = TextOverflow.Ellipsis,
 			)
 			Text(
-				item.category.uppercase(Locale("sk", "SK")) +
+				item.category.uppercase(SlovakLocale) +
 					"  ·  " + item.merchant,
 				style = MaterialTheme.typography.bodySmall,
 				color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1464,7 +1463,7 @@ private fun itemMeta(item: ReceiptItem): String {
 		item.subcategory?.let(::add)
 		item.spendingType?.let { add(spendingTypeLabel(it)) }
 	}.joinToString("  ·  ")
-	return quantityText + "×  ·  " + classification.uppercase(Locale("sk", "SK"))
+	return quantityText + "×  ·  " + classification.uppercase(SlovakLocale)
 }
 
 private fun spendingTypeLabel(spendingType: SpendingType): String = when (spendingType) {
@@ -1476,11 +1475,13 @@ private fun spendingTypeLabel(spendingType: SpendingType): String = when (spendi
 private fun monthLabel(month: ExpenseMonth, long: Boolean = false): String {
 	val pattern = if (long) "LLLL yyyy" else "MMM yyyy"
 	return YearMonth.of(month.year, month.month)
-		.format(DateTimeFormatter.ofPattern(pattern, Locale("sk", "SK")))
+		.format(DateTimeFormatter.ofPattern(pattern, SlovakLocale))
 		.replaceFirstChar { value ->
-			if (long) value.titlecase(Locale("sk", "SK")) else value.uppercase(Locale("sk", "SK"))
+			if (long) value.titlecase(SlovakLocale) else value.uppercase(SlovakLocale)
 		}
 }
 
-private fun money(cents: Long): String = NumberFormat.getCurrencyInstance(Locale("sk", "SK"))
+private val SlovakLocale = Locale.forLanguageTag("sk-SK")
+
+private fun money(cents: Long): String = NumberFormat.getCurrencyInstance(SlovakLocale)
 	.format(cents / 100.0)
