@@ -60,6 +60,31 @@ class BlockyDatabaseClassificationTest {
 		)
 	}
 
+
+	@Test
+	fun upgradeReclassifiesAiNonAlcoholicDrinksButPreservesManualOverrides() {
+		database.save(
+			receipt(
+				items = listOf(
+					item("KAVA", "Nealkoholické nápoje").copy(
+						classificationSource = ClassificationSource.AI,
+					),
+					item("COLA", "Nealkoholické nápoje").copy(
+						classificationSource = ClassificationSource.USER,
+					),
+				),
+			),
+		)
+
+		database.onUpgrade(database.writableDatabase, 5, 6)
+
+		val items = database.receipt("receipt-1")!!.items
+		assertEquals(null, items[0].classificationSource)
+		assertEquals(null, items[0].classificationConfidence)
+		assertEquals(ClassificationSource.USER, items[1].classificationSource)
+		assertEquals(listOf("receipt-1"), database.receiptIdsNeedingClassification())
+	}
+
 	@Test
 	fun persistsSpendingTypeAndClassificationConfidence() {
 		database.save(receipt())

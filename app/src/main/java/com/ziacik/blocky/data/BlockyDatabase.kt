@@ -16,7 +16,7 @@ import com.ziacik.blocky.model.SpendingType
 import com.ziacik.blocky.model.SpendingTypeTotal
 import com.ziacik.blocky.model.SubcategoryTotal
 
-class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", null, 5), ReceiptStore {
+class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", null, 6), ReceiptStore {
 	override fun onConfigure(db: SQLiteDatabase) {
 		super.onConfigure(db)
 		db.setForeignKeyConstraintsEnabled(true)
@@ -106,6 +106,18 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 		}
 		if (oldVersion < 5) {
 			db.execSQL("CREATE INDEX IF NOT EXISTS idx_receipts_issued_at ON receipts(issued_at)")
+		}
+		if (oldVersion < 6) {
+			db.execSQL(
+				"""
+				UPDATE items
+				SET classification_source = NULL,
+				    classification_confidence = NULL
+				WHERE category = 'Potraviny'
+				  AND subcategory = 'Nealkoholické nápoje'
+				  AND classification_source = 'AI'
+				""".trimIndent()
+			)
 		}
 	}
 
