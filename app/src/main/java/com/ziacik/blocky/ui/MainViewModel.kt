@@ -12,7 +12,8 @@ import com.ziacik.blocky.data.EkasaClient
 import com.ziacik.blocky.data.EkasaReceiptParser
 import com.ziacik.blocky.data.ExpenseMonth
 import com.ziacik.blocky.data.ReceiptRepository
-import com.ziacik.blocky.data.ReceiptFileQrScanner
+import com.ziacik.blocky.data.ReceiptFileScanner
+import com.ziacik.blocky.data.ScannedReceiptFile
 import com.ziacik.blocky.data.RepositorySnapshot
 import com.ziacik.blocky.data.wolt.WoltSessionStore
 import com.ziacik.blocky.data.wolt.WoltSyncService
@@ -81,21 +82,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 	}
 
 	fun importReceipt(qrValue: String) {
-		importReceiptFrom { qrValue }
+		importReceiptFrom { repository.import(qrValue) }
 	}
 
 	fun importReceiptFile(uri: Uri) {
-		importReceiptFrom { ReceiptFileQrScanner(getApplication()).scan(uri) }
+		importReceiptFrom {
+			when (val scanned = ReceiptFileScanner(getApplication()).scan(uri)) {
+				is ScannedReceiptFile.Ekasa -> repository.import(scanned.qrValue)
+				is ScannedReceiptFile.Spar -> repository.import(scanned.receipt)
+			}
+		}
 	}
 
-	private fun importReceiptFrom(readQr: () -> String) {
+	private fun importReceiptFrom(ingest: () -> Unit) {
 		if (_state.value.loading) return
 
 		_state.update { it.copy(loading = true, message = null) }
 		viewModelScope.launch {
 			val result = runCatching {
 				withContext(Dispatchers.IO) {
-					repository.import(readQr())
+					ingest()
 					repository.snapshot(_state.value.selectedMonth)
 				}
 			}

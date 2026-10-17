@@ -82,6 +82,7 @@ dependencies {
 
 	implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
 	implementation("com.google.mlkit:barcode-scanning:17.3.0")
+	implementation("com.google.mlkit:text-recognition:16.0.1")
 
 	testImplementation("junit:junit:4.13.2")
 	testImplementation("org.json:json:20260814")

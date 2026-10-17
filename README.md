@@ -1,15 +1,23 @@
 # Bločky
 
-Android appka na evidenciu a analýzu reálnych nákupov zo slovenských eKasa bločkov a Wolt objednávok.
+Android appka na evidenciu a analýzu nákupov zo slovenských eKasa bločkov, rakúskych účteniek SPAR a Wolt objednávok.
 
 ## Aktuálny vertical slice
 
-1. Naskenuje QR kód bločku cez Google Code Scanner alebo synchronizuje Wolt.
+1. Naskenuje eKasa QR cez Google Code Scanner, importuje obrázok/PDF (eKasa alebo SPAR) alebo synchronizuje Wolt.
 2. Načíta bloček vrátane jednotlivých položiek.
 3. Pošle celý bloček na kategorizáciu: názov obchodníka + všetky položky naraz.
 4. Uloží hlavnú kategóriu, podkategóriu a typ výdavku pre každú položku.
 5. Umožní konkrétnu položku ručne opraviť; manuálna oprava má prednosť pred neskoršou AI kategorizáciou.
 6. Ukáže výdavky, kategórie, produkty a históriu bločkov.
+
+## Rakúsky SPAR
+
+Pri platení naskenuj v SPAR aplikácii svoj SPAR-Code. V SPAR aplikácii otvor **Rechnungen** (z domovskej obrazovky cez ikonu účtenky alebo cez **Mehr**) a ulož konkrétnu digitálnu účtenku. V Bločkoch stlač **+ → Importovať súbor (eKasa / SPAR)** a vyber jej PDF alebo obrázok.
+
+Bločky lokálne rozpoznajú text, položky a záporné riadky zliav a zaradia nákup do príslušného mesiaca; následná AI kategorizácia je rovnaká ako pri eKase. Ak súčet rozpoznaných položiek a zliav nesedí s celkovou sumou, import odmietnu namiesto uloženia chybných štatistík. Každá účtenka má stabilný identifikátor, opätovný import identického súboru nevytvorí duplicitný nákup.
+
+**Limity:** Zatiaľ len rakúsky SPAR/EUROSPAR/INTERSPAR, nie všeobecné rakúske bločky. Formát reálne exportovaných súborov treba doladiť po otestovaní skutočnej účtenky. OCR nemusí spoľahlivo prečítať všetky množstvá alebo formy zliav; pri nezhode sumy sa nič neuloží. Hromadný export zo SPAR aplikácie zatiaľ nie je podporovaný.
 
 ## Kategorizácia
 

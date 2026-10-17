@@ -32,6 +32,8 @@ class ReceiptRepository(
 		return ingestor.ingest(parser.parse(json))
 	}
 
+	fun import(receipt: Receipt): Receipt = ingestor.ingest(receipt)
+
 	fun receipt(receiptId: String): Receipt? = database.receipt(receiptId)
 
 	fun allItems(month: ExpenseMonth): List<ItemListEntry> {

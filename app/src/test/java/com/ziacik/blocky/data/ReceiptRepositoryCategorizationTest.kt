@@ -57,6 +57,32 @@ class ReceiptRepositoryCategorizationTest {
 	}
 
 	@Test
+	fun importsExternalReceiptThroughSameCategorizationPipeline() {
+		val categorizer = object : ReceiptCategorizer {
+			override fun categorize(receipt: Receipt) = receipt.copy(
+				items = receipt.items.map { it.copy(category = "Potraviny", subcategory = "Pečivo") },
+			)
+		}
+		val repository = ReceiptRepository(
+			client = object : ReceiptLookupClient {
+				override fun findReceipt(qrValue: String) = error("Not an eKasa import")
+			},
+			parser = object : ReceiptParser {
+				override fun parse(json: String) = error("Not an eKasa import")
+			},
+			database = database,
+			ingestor = ReceiptIngestor(categorizer, database),
+		)
+
+		repository.import(receipt("Nezaradené").copy(id = "spar:some-receipt"))
+
+		assertEquals(
+			"Pečivo",
+			database.receipt("spar:some-receipt")!!.items.single().subcategory,
+		)
+	}
+
+	@Test
 	fun categorizesAlreadyStoredUnclassifiedReceipts() {
 		database.save(receipt("Nezaradené"))
 		val categorizer = object : ReceiptCategorizer {

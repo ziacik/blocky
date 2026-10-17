@@ -431,7 +431,7 @@ private fun BlockyDock(
 						},
 					)
 					DropdownMenuItem(
-						text = { Text("Vybrať obrázok alebo PDF") },
+						text = { Text("Importovať súbor (eKasa / SPAR)") },
 						leadingIcon = {
 							Icon(Icons.Rounded.FolderOpen, contentDescription = null)
 						},
