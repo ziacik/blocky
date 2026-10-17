@@ -2,6 +2,7 @@ package com.ziacik.blocky.data
 
 import com.ziacik.blocky.model.CategoryTotal
 import com.ziacik.blocky.model.ClassificationSource
+import com.ziacik.blocky.model.ProductTotal
 import com.ziacik.blocky.model.Receipt
 import com.ziacik.blocky.model.ReceiptItem
 import com.ziacik.blocky.model.SpendingType
@@ -243,6 +244,7 @@ class BlockyDatabaseClassificationTest {
 					ReceiptItem(
 						originalName = "ROHLIK",
 						canonicalName = "Biely rožok",
+						genericName = "Rožok",
 						category = "Potraviny",
 						subcategory = "Pečivo",
 						quantity = 1.0,
@@ -257,6 +259,60 @@ class BlockyDatabaseClassificationTest {
 		)
 
 		assertEquals(listOf("pending"), database.receiptIdsNeedingClassification())
+	}
+
+
+	@Test
+	fun groupsDifferentBrandsByGenericNameAndPreservesManualCorrection() {
+		val receipt = receipt(
+			items = listOf(
+				item("Tami tatranské maslo", "Mliečne výrobky").copy(
+					canonicalName = "Tami tatranské maslo",
+					genericName = "Maslo",
+				),
+				item("Rajo maslo", "Mliečne výrobky").copy(
+					canonicalName = "Rajo maslo",
+					genericName = "Maslo",
+				),
+				item("Eidam na vyprážanie", "Mliečne výrobky").copy(
+					genericName = "Eidam",
+				),
+			),
+		)
+		database.save(receipt)
+
+		assertEquals(
+			listOf(ProductTotal("Maslo", 398L), ProductTotal("Eidam", 199L)),
+			database.productTotals(),
+		)
+
+		database.updateItemClassification(
+			receiptId = "receipt-1",
+			itemIndex = 2,
+			category = "Potraviny",
+			subcategory = "Mliečne výrobky",
+			spendingType = SpendingType.REGULAR,
+			genericName = "Syr",
+		)
+		database.save(receipt)
+
+		assertEquals("Syr", database.receipt("receipt-1")!!.items[2].genericName)
+		assertEquals(ClassificationSource.USER, database.receipt("receipt-1")!!.items[2].classificationSource)
+	}
+
+	@Test
+	fun classifiedItemsMissingGenericNameAreQueuedForBackfill() {
+		database.save(
+			receipt(items = listOf(
+				item("RAJO ML.", "Mliečne výrobky").copy(
+					canonicalName = "Rajo mlieko",
+					genericName = null,
+					classificationSource = ClassificationSource.AI,
+				),
+			)),
+		)
+
+		assertEquals(listOf("receipt-1"), database.receiptIdsNeedingClassification())
 	}
 
 	private fun receipt(

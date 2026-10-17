@@ -64,6 +64,26 @@ class SummaryItemsTest {
 		)
 	}
 
+
+	@Test
+	fun genericProductFilterMergesDifferentBrands() {
+		val items = listOf(
+			item("Potraviny", "Mliečne výrobky", SpendingType.REGULAR).copy(
+				canonicalName = "Tami tatranské maslo",
+				genericName = "Maslo",
+			),
+			item("Potraviny", "Mliečne výrobky", SpendingType.REGULAR).copy(
+				canonicalName = "Rajo maslo",
+				genericName = "Maslo",
+			),
+			item("Potraviny", "Mliečne výrobky", SpendingType.REGULAR).copy(
+				canonicalName = "Eidam",
+				genericName = "Eidam",
+			),
+		)
+		assertEquals(items.take(2), SummaryItems.filter(items, SummaryFilter.Product("Maslo")))
+	}
+
 	private fun item(
 		category: String,
 		subcategory: String?,

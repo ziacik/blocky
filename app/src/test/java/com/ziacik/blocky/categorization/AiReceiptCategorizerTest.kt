@@ -17,6 +17,7 @@ class AiReceiptCategorizerTest {
 					CategorizedItem(
 						index = 0,
 						canonicalName = "Biely rožok",
+						genericName = "Rožok",
 						category = "Potraviny",
 						subcategory = "Pečivo",
 						spendingType = SpendingType.ESSENTIAL,
@@ -25,6 +26,7 @@ class AiReceiptCategorizerTest {
 					CategorizedItem(
 						index = 1,
 						canonicalName = "Sprchový gél Dove",
+						genericName = "Sprchový gél",
 						category = "Drogéria",
 						subcategory = "Osobná hygiena",
 						spendingType = SpendingType.REGULAR,
@@ -55,6 +57,8 @@ class AiReceiptCategorizerTest {
 			requests.single().items.map { it.name },
 		)
 		assertEquals("Biely rožok", categorized.items[0].canonicalName)
+		assertEquals("Rožok", categorized.items[0].genericName)
+		assertEquals("Sprchový gél", categorized.items[1].genericName)
 		assertEquals("Potraviny", categorized.items[0].category)
 		assertEquals("Pečivo", categorized.items[0].subcategory)
 		assertEquals(SpendingType.ESSENTIAL, categorized.items[0].spendingType)

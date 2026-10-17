@@ -48,6 +48,8 @@ class OpenAiCategorizationClientTest {
 		assertTrue(body.contains("\"type\":\"json_schema\""))
 		assertTrue(body.contains("Pečivo"))
 		assertTrue(body.contains("Káva"))
+		assertTrue(body.contains("genericName"))
+		assertTrue(body.contains("Frapko"))
 		assertTrue(body.contains("do not classify them as Nealkoholické nápoje"))
 		assertEquals("Biely rožok", result.single().canonicalName)
 		assertEquals("Pečivo", result.single().subcategory)

@@ -1,6 +1,7 @@
 package com.ziacik.blocky.ui
 
 import com.ziacik.blocky.model.CategoryTotal
+import com.ziacik.blocky.model.ProductTotal
 import com.ziacik.blocky.model.SpendingType
 import com.ziacik.blocky.model.SpendingTypeTotal
 import com.ziacik.blocky.model.SubcategoryTotal
@@ -8,6 +9,20 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class SummaryBreakdownTest {
+
+	@Test
+	fun productTotalsUseGenericNameAsAFilter() {
+		val totals = SummaryBreakdown.totals(
+			categories = emptyList(),
+			subcategories = emptyList(),
+			spendingTypes = emptyList(),
+			products = listOf(ProductTotal("Maslo", 600), ProductTotal("Eidam", 300)),
+			dimension = BreakdownDimension.Product,
+		)
+		assertEquals(listOf("Maslo", "Eidam"), totals.map { it.label })
+		assertEquals(SummaryFilter.Product("Maslo"), totals.first().filter)
+	}
+
 	@Test
 	fun categoryTotalsContainAllPositiveEntriesSortedByAmount() {
 		val totals = SummaryBreakdown.totals(

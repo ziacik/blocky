@@ -32,6 +32,7 @@ class CategorizationJsonTest {
 				"items": [{
 					"index": 0,
 					"canonicalName": "Biely rožok",
+					"genericName": "Rožok",
 					"category": "Potraviny",
 					"subcategory": "Pečivo",
 					"spendingType": "ESSENTIAL",
@@ -41,6 +42,7 @@ class CategorizationJsonTest {
 			""".trimIndent(),
 		)
 
+		assertEquals("Rožok", result.single().genericName)
 		assertEquals("Pečivo", result.single().subcategory)
 		assertEquals(SpendingType.ESSENTIAL, result.single().spendingType)
 	}
