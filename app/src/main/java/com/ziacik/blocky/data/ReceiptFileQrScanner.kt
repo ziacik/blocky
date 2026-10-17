@@ -1,7 +1,6 @@
 package com.ziacik.blocky.data
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
