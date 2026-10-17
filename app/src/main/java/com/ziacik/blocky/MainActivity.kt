@@ -765,6 +765,10 @@ private fun ReceiptsScreen(
 			)
 		}
 
+		state.message?.let { message ->
+			item { StatusMessage(message) }
+		}
+
 		items(
 			items = state.receipts,
 			key = { it.id },
@@ -796,6 +800,10 @@ private fun ItemsScreen(
 				style = MaterialTheme.typography.headlineMedium,
 				modifier = Modifier.padding(bottom = 22.dp),
 			)
+		}
+
+		state.message?.let { message ->
+			item { StatusMessage(message) }
 		}
 
 		if (state.loading && state.allItems.isEmpty()) {
