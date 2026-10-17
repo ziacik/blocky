@@ -11,6 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,6 +48,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -56,6 +58,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberScrollState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -74,6 +77,7 @@ import com.ziacik.blocky.data.ExpenseMonth
 import com.ziacik.blocky.data.wolt.WoltSyncScheduler
 import com.ziacik.blocky.model.CategoryTotal
 import com.ziacik.blocky.model.ItemListEntry
+import com.ziacik.blocky.model.ProductTotal
 import com.ziacik.blocky.model.Receipt
 import com.ziacik.blocky.model.ReceiptItem
 import com.ziacik.blocky.model.ReceiptSummary
@@ -522,6 +526,7 @@ private fun OverviewScreen(
 					categories = state.categories,
 					subcategories = state.subcategories,
 					spendingTypes = state.spendingTypes,
+					products = state.products,
 					totalCents = state.totalCents,
 					onSummary = onSummary,
 					onShowAll = onBreakdown,
@@ -553,6 +558,7 @@ private fun CategoryBreakdown(
 	categories: List<CategoryTotal>,
 	subcategories: List<SubcategoryTotal>,
 	spendingTypes: List<SpendingTypeTotal>,
+	products: List<ProductTotal>,
 	totalCents: Long,
 	onSummary: (SummaryFilter) -> Unit,
 	onShowAll: (BreakdownDimension) -> Unit,
@@ -563,13 +569,17 @@ private fun CategoryBreakdown(
 		subcategories = subcategories,
 		spendingTypes = spendingTypes,
 		dimension = dimension,
+		products = products,
 	)
 	val chartEntries = totals.take(5)
 
 	Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
 		SectionLabel("KAM IŠLI PENIAZE")
 
-		Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+		Row(
+			modifier = Modifier.horizontalScroll(rememberScrollState()),
+			horizontalArrangement = Arrangement.spacedBy(8.dp),
+		) {
 			FilterChip(
 				selected = dimension == BreakdownDimension.Category,
 				onClick = { dimension = BreakdownDimension.Category },
@@ -584,6 +594,11 @@ private fun CategoryBreakdown(
 				selected = dimension == BreakdownDimension.SpendingType,
 				onClick = { dimension = BreakdownDimension.SpendingType },
 				label = { Text("Typ") },
+			)
+			FilterChip(
+				selected = dimension == BreakdownDimension.Product,
+				onClick = { dimension = BreakdownDimension.Product },
+				label = { Text("Produkty") },
 			)
 		}
 
@@ -638,6 +653,7 @@ private fun BreakdownScreen(
 		subcategories = state.subcategories,
 		spendingTypes = state.spendingTypes,
 		dimension = dimension,
+		products = state.products,
 	)
 
 	Scaffold(
@@ -1039,7 +1055,7 @@ private data class IndexedReceiptItem(
 private fun ReceiptDetailScreen(
 	state: MainUiState,
 	onBack: () -> Unit,
-	onCorrectItem: (String, Int, String, String?, SpendingType) -> Unit,
+	onCorrectItem: (String, Int, String, String?, SpendingType, String?) -> Unit,
 ) {
 	var editingItem by remember { mutableStateOf<IndexedReceiptItem?>(null) }
 
@@ -1116,7 +1132,7 @@ private fun ReceiptDetailScreen(
 		ClassificationDialog(
 			item = editing.item,
 			onDismiss = { editingItem = null },
-			onSave = { category, subcategory, spendingType ->
+			onSave = { category, subcategory, spendingType, genericName ->
 				val receiptId = state.selectedReceipt?.id
 				if (receiptId != null) {
 					onCorrectItem(
@@ -1125,6 +1141,7 @@ private fun ReceiptDetailScreen(
 						category,
 						subcategory,
 						spendingType,
+						genericName,
 					)
 				}
 				editingItem = null
@@ -1240,6 +1257,13 @@ private fun ItemRow(
 				maxLines = 2,
 				overflow = TextOverflow.Ellipsis,
 			)
+			if (!item.genericName.isNullOrBlank()) {
+				Text(
+					"Produkt: ${item.genericName}",
+					style = MaterialTheme.typography.bodySmall,
+					color = MaterialTheme.colorScheme.onSurfaceVariant,
+				)
+			}
 			Text(
 				item.category.uppercase(SlovakLocale) +
 					"  ·  " + item.merchant,
@@ -1283,6 +1307,13 @@ private fun ReceiptItemRow(
 				maxLines = 3,
 				overflow = TextOverflow.Ellipsis,
 			)
+			if (!item.genericName.isNullOrBlank()) {
+				Text(
+					"Produkt: ${item.genericName}",
+					style = MaterialTheme.typography.bodySmall,
+					color = MaterialTheme.colorScheme.primary,
+				)
+			}
 			Text(
 				itemMeta(item),
 				style = MaterialTheme.typography.bodySmall,
@@ -1310,11 +1341,12 @@ private fun ReceiptItemRow(
 private fun ClassificationDialog(
 	item: ReceiptItem,
 	onDismiss: () -> Unit,
-	onSave: (String, String?, SpendingType) -> Unit,
+	onSave: (String, String?, SpendingType, String?) -> Unit,
 ) {
 	var editor by remember(item) {
 		mutableStateOf(ClassificationEditorState.from(item))
 	}
+	var genericName by remember(item) { mutableStateOf(item.genericName.orEmpty()) }
 	var categoryExpanded by remember { mutableStateOf(false) }
 	var subcategoryExpanded by remember { mutableStateOf(false) }
 
@@ -1329,6 +1361,15 @@ private fun ClassificationDialog(
 					item.originalName,
 					style = MaterialTheme.typography.bodyLarge,
 					fontWeight = FontWeight.Bold,
+				)
+
+				OutlinedTextField(
+					value = genericName,
+					onValueChange = { genericName = it },
+					label = { Text("Produkt (bez značky)") },
+					placeholder = { Text("Doplní AI") },
+					singleLine = true,
+					modifier = Modifier.fillMaxWidth(),
 				)
 
 				SectionLabel("KATEGÓRIA")
@@ -1397,7 +1438,7 @@ private fun ClassificationDialog(
 		confirmButton = {
 			TextButton(
 				onClick = {
-					onSave(editor.category, editor.subcategory, editor.spendingType)
+					onSave(editor.category, editor.subcategory, editor.spendingType, genericName.trim().takeIf(String::isNotBlank))
 				},
 			) {
 				Text("Uložiť")

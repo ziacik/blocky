@@ -1,6 +1,7 @@
 package com.ziacik.blocky.ui
 
 import com.ziacik.blocky.model.CategoryTotal
+import com.ziacik.blocky.model.ProductTotal
 import com.ziacik.blocky.model.SpendingType
 import com.ziacik.blocky.model.SpendingTypeTotal
 import com.ziacik.blocky.model.SubcategoryTotal
@@ -9,6 +10,7 @@ enum class BreakdownDimension {
 	Category,
 	Subcategory,
 	SpendingType,
+	Product,
 }
 
 data class BreakdownTotal(
@@ -23,6 +25,7 @@ object SummaryBreakdown {
 		subcategories: List<SubcategoryTotal>,
 		spendingTypes: List<SpendingTypeTotal>,
 		dimension: BreakdownDimension,
+		products: List<ProductTotal> = emptyList(),
 	): List<BreakdownTotal> = when (dimension) {
 		BreakdownDimension.Category -> categories.map {
 			BreakdownTotal(
@@ -47,6 +50,14 @@ object SummaryBreakdown {
 				filter = SummaryFilter.ExpenseType(it.spendingType),
 			)
 		}
+
+		BreakdownDimension.Product -> products.map {
+			BreakdownTotal(
+				label = it.product,
+				totalCents = it.totalCents,
+				filter = SummaryFilter.Product(it.product),
+			)
+		}
 	}
 		.filter { it.totalCents > 0 }
 		.sortedByDescending { it.totalCents }
@@ -55,6 +66,7 @@ object SummaryBreakdown {
 		BreakdownDimension.Category -> "VŠETKY KATEGÓRIE"
 		BreakdownDimension.Subcategory -> "VŠETKY PODKATEGÓRIE"
 		BreakdownDimension.SpendingType -> "VŠETKY TYPY VÝDAVKOV"
+		BreakdownDimension.Product -> "VŠETKY PRODUKTY"
 	}
 
 	private fun spendingTypeLabel(spendingType: SpendingType): String = when (spendingType) {

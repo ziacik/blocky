@@ -247,6 +247,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 		category: String,
 		subcategory: String?,
 		spendingType: SpendingType,
+		genericName: String?,
 	) {
 		viewModelScope.launch {
 			val result = runCatching {
@@ -257,13 +258,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 						category = category,
 						subcategory = subcategory,
 						spendingType = spendingType,
+						genericName = genericName,
 					)
 					receipt to repository.snapshot(_state.value.selectedMonth)
 				}
 			}
 
 			result.onSuccess { (receipt, snapshot) ->
-				applySnapshot(snapshot, "Kategória upravená.")
+				applySnapshot(snapshot, "Položka upravená.")
 				_state.update { it.copy(selectedReceipt = receipt) }
 			}.onFailure { error ->
 				_state.update {

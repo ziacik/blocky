@@ -12,6 +12,8 @@ sealed interface SummaryFilter {
 	) : SummaryFilter
 
 	data class ExpenseType(val spendingType: SpendingType?) : SummaryFilter
+
+	data class Product(val name: String) : SummaryFilter
 }
 
 object SummaryItems {
@@ -29,6 +31,10 @@ object SummaryItems {
 
 		is SummaryFilter.ExpenseType -> items.filter { item ->
 			item.spendingType == filter.spendingType
+		}
+
+		is SummaryFilter.Product -> items.filter { item ->
+			(item.genericName?.takeIf(String::isNotBlank) ?: item.canonicalName) == filter.name
 		}
 	}
 
@@ -49,6 +55,7 @@ object SummaryItems {
 		is SummaryFilter.Category -> filter.category
 		is SummaryFilter.Subcategory -> filter.subcategory
 		is SummaryFilter.ExpenseType -> filter.spendingType?.let(::spendingTypeLabel) ?: "Nezaradené"
+		is SummaryFilter.Product -> filter.name
 	}
 
 	private fun spendingTypeLabel(spendingType: SpendingType): String = when (spendingType) {
