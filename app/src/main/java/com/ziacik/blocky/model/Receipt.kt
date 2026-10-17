@@ -31,6 +31,7 @@ data class ReceiptItem(
 	val spendingType: SpendingType? = null,
 	val classificationConfidence: Double? = null,
 	val classificationSource: ClassificationSource? = null,
+	val genericName: String? = null,
 )
 
 data class ReceiptSummary(
@@ -53,6 +54,7 @@ data class ItemListEntry(
 	val spendingType: SpendingType? = null,
 	val classificationConfidence: Double? = null,
 	val classificationSource: ClassificationSource? = null,
+	val genericName: String? = null,
 )
 
 data class CategoryTotal(

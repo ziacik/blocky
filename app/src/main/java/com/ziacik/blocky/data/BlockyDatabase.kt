@@ -17,7 +17,7 @@ import com.ziacik.blocky.model.SpendingType
 import com.ziacik.blocky.model.SpendingTypeTotal
 import com.ziacik.blocky.model.SubcategoryTotal
 
-class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", null, 6), ReceiptStore {
+class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", null, 7), ReceiptStore {
 	override fun onConfigure(db: SQLiteDatabase) {
 		super.onConfigure(db)
 		db.setForeignKeyConstraintsEnabled(true)
@@ -42,6 +42,7 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 				receipt_id TEXT NOT NULL,
 				original_name TEXT NOT NULL,
 				canonical_name TEXT NOT NULL,
+				generic_name TEXT,
 				category TEXT NOT NULL,
 				subcategory TEXT,
 				quantity REAL NOT NULL,
@@ -120,6 +121,9 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 				""".trimIndent()
 			)
 		}
+		if (oldVersion < 7) {
+			db.execSQL("ALTER TABLE items ADD COLUMN generic_name TEXT")
+		}
 	}
 
 	override fun save(receipt: Receipt) {
@@ -140,6 +144,8 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 					put("receipt_id", receipt.id)
 					put("original_name", item.originalName)
 					put("canonical_name", override?.canonicalName ?: item.canonicalName)
+					val genericName = override?.genericName ?: item.genericName
+					if (genericName == null) putNull("generic_name") else put("generic_name", genericName)
 					put("category", override?.category ?: item.category)
 					put("subcategory", override?.subcategory ?: item.subcategory)
 					put("quantity", item.quantity)
@@ -166,6 +172,7 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 		category: String,
 		subcategory: String?,
 		spendingType: SpendingType,
+		genericName: String? = null,
 	): Boolean {
 		require(itemIndex >= 0) { "itemIndex must not be negative" }
 
@@ -187,6 +194,10 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 			put("category", category)
 			if (subcategory == null) putNull("subcategory") else put("subcategory", subcategory)
 			put("spending_type", spendingType.name)
+			if (genericName != null) {
+				require(genericName.isNotBlank()) { "genericName must not be blank" }
+				put("generic_name", genericName.trim())
+			}
 			putNull("classification_confidence")
 			put("classification_source", ClassificationSource.USER.name)
 		}
@@ -239,7 +250,7 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 		val items = readableDatabase.rawQuery(
 			"""
 			SELECT original_name, canonical_name, category, subcategory, quantity, total_cents, vat_rate,
-			       spending_type, classification_confidence, classification_source
+			       spending_type, classification_confidence, classification_source, generic_name
 			FROM items
 			WHERE receipt_id = ?
 			ORDER BY id
@@ -260,6 +271,7 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 							spendingType = enumOrNull<SpendingType>(cursor, 7),
 							classificationConfidence = if (cursor.isNull(8)) null else cursor.getDouble(8),
 							classificationSource = enumOrNull<ClassificationSource>(cursor, 9),
+							genericName = if (cursor.isNull(10)) null else cursor.getString(10),
 						)
 					)
 				}
@@ -273,7 +285,7 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 		"""
 		SELECT i.receipt_id, r.merchant, r.issued_at, i.original_name, i.canonical_name,
 		       i.category, i.subcategory, i.quantity, i.total_cents,
-		       i.spending_type, i.classification_confidence, i.classification_source
+		       i.spending_type, i.classification_confidence, i.classification_source, i.generic_name
 		FROM items i
 		JOIN receipts r ON r.receipt_id = i.receipt_id
 		ORDER BY r.issued_at DESC, i.id DESC
@@ -297,6 +309,7 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 						spendingType = enumOrNull<SpendingType>(cursor, 9),
 						classificationConfidence = if (cursor.isNull(10)) null else cursor.getDouble(10),
 						classificationSource = enumOrNull<ClassificationSource>(cursor, 11),
+						genericName = if (cursor.isNull(12)) null else cursor.getString(12),
 					)
 				)
 			}
@@ -311,7 +324,7 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 			SELECT 1
 			FROM items i
 			WHERE i.receipt_id = r.receipt_id
-			  AND (i.classification_source IS NULL OR i.category = 'Nezaradené')
+			  AND (i.classification_source IS NULL OR i.category = 'Nezaradené' OR i.generic_name IS NULL)
 		)
 		ORDER BY r.issued_at DESC
 		LIMIT ?
@@ -351,8 +364,8 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 		cursor.getLong(0)
 	}
 
-	fun productTotals(limit: Int = 6): List<ProductTotal> = readableDatabase.rawQuery(
-		"SELECT canonical_name, SUM(total_cents) total FROM items GROUP BY canonical_name ORDER BY total DESC LIMIT ?",
+	fun productTotals(limit: Int = 5_000): List<ProductTotal> = readableDatabase.rawQuery(
+		"SELECT COALESCE(NULLIF(TRIM(generic_name), ''), canonical_name) product, SUM(total_cents) total FROM items GROUP BY product ORDER BY total DESC, product COLLATE NOCASE LIMIT ?",
 		arrayOf(limit.toString()),
 	).use { cursor ->
 		buildList {
@@ -437,7 +450,7 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 		"""
 		SELECT i.receipt_id, r.merchant, r.issued_at, i.original_name, i.canonical_name,
 		       i.category, i.subcategory, i.quantity, i.total_cents,
-		       i.spending_type, i.classification_confidence, i.classification_source
+		       i.spending_type, i.classification_confidence, i.classification_source, i.generic_name
 		FROM items i
 		JOIN receipts r ON r.receipt_id = i.receipt_id
 		WHERE r.issued_at >= ? AND r.issued_at < ?
@@ -462,6 +475,7 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 						spendingType = enumOrNull<SpendingType>(cursor, 9),
 						classificationConfidence = if (cursor.isNull(10)) null else cursor.getDouble(10),
 						classificationSource = enumOrNull<ClassificationSource>(cursor, 11),
+						genericName = if (cursor.isNull(12)) null else cursor.getString(12),
 					)
 				)
 			}
@@ -511,15 +525,15 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 	fun productTotalsBetween(
 		startInclusive: Long,
 		endExclusive: Long,
-		limit: Int = 6,
+		limit: Int = 5_000,
 	): List<ProductTotal> = readableDatabase.rawQuery(
 		"""
-		SELECT i.canonical_name, SUM(i.total_cents) total
+		SELECT COALESCE(NULLIF(TRIM(i.generic_name), ''), i.canonical_name) product, SUM(i.total_cents) total
 		FROM items i
 		JOIN receipts r ON r.receipt_id = i.receipt_id
 		WHERE r.issued_at >= ? AND r.issued_at < ?
-		GROUP BY i.canonical_name
-		ORDER BY total DESC
+		GROUP BY product
+		ORDER BY total DESC, product COLLATE NOCASE
 		LIMIT ?
 		""".trimIndent(),
 		arrayOf(startInclusive.toString(), endExclusive.toString(), limit.toString()),
@@ -603,7 +617,7 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 
 	private fun manualOverrides(receiptId: String): Map<Int, ManualOverride> = readableDatabase.rawQuery(
 		"""
-		SELECT canonical_name, category, subcategory, spending_type, classification_source
+		SELECT canonical_name, category, subcategory, spending_type, classification_source, generic_name
 		FROM items
 		WHERE receipt_id = ?
 		ORDER BY id
@@ -619,6 +633,7 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 						index,
 						ManualOverride(
 							canonicalName = cursor.getString(0),
+							genericName = if (cursor.isNull(5)) null else cursor.getString(5),
 							category = cursor.getString(1),
 							subcategory = cursor.getString(2),
 							spendingType = SpendingType.valueOf(cursor.getString(3)),
@@ -641,6 +656,7 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 
 	private data class ManualOverride(
 		val canonicalName: String,
+		val genericName: String?,
 		val category: String,
 		val subcategory: String?,
 		val spendingType: SpendingType,

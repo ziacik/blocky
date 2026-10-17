@@ -81,7 +81,14 @@ class OpenAiCategorizationClient(
 	private fun instructions(): String = """
 		Classify every receipt item. Use the merchant name and the other items on the same receipt as context.
 		Return exactly one result for every input index and preserve each index.
-		canonicalName must be a concise, human-readable Slovak product name.
+		canonicalName must be a concise, human-readable Slovak product name preserving specific product identity.
+		genericName must be a stable Slovak name for the same type of product across brands and shops.
+		Remove brand names, marketing adjectives, flavors and sizes unless essential to identify the product type.
+		Never generalize to a broad category when a useful product type exists: Eidam stays Eidam, not Syr.
+		Examples: "Krásne žlté vajcia" -> "Vajcia"; "Tami tatranské maslo" -> "Maslo";
+		"Rajo ml." -> "Mlieko"; "Lay's chipsy" -> "Chipsy"; "Arašidové chrumky" -> "Chrumky";
+		"Frapko vanilka" -> "Frapko" (a distinctive product name rather than a generic flavor).
+		Use consistent capitalization and noun forms so equivalent products share exactly the same genericName.
 		ESSENTIAL means a basic necessary purchase, REGULAR means an ordinary recurring purchase,
 		and DISCRETIONARY means a purchase that could reasonably be omitted.
 		Use subcategory Káva for packaged coffee products such as whole-bean, ground, instant or capsule coffee; do not classify them as Nealkoholické nápoje.
@@ -109,6 +116,7 @@ class OpenAiCategorizationClient(
 									JSONObject()
 										.put("index", JSONObject().put("type", "integer"))
 										.put("canonicalName", JSONObject().put("type", "string").put("minLength", 1))
+										.put("genericName", JSONObject().put("type", "string").put("minLength", 1))
 										.put(
 											"category",
 											JSONObject()
@@ -141,6 +149,7 @@ class OpenAiCategorizationClient(
 										listOf(
 											"index",
 											"canonicalName",
+											"genericName",
 											"category",
 											"subcategory",
 											"spendingType",

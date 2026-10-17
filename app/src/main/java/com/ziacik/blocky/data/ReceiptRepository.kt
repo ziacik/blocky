@@ -52,6 +52,7 @@ class ReceiptRepository(
 		category: String,
 		subcategory: String?,
 		spendingType: SpendingType,
+		genericName: String? = null,
 	): Receipt {
 		ExpenseTaxonomy.requireValid(category, subcategory)
 		check(
@@ -61,6 +62,7 @@ class ReceiptRepository(
 				category = category,
 				subcategory = subcategory,
 				spendingType = spendingType,
+				genericName = genericName,
 			)
 		) { "Položka sa nenašla." }
 

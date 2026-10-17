@@ -23,6 +23,7 @@ data class CategorizedItem(
 	val subcategory: String?,
 	val spendingType: SpendingType,
 	val confidence: Double,
+	val genericName: String? = null,
 )
 
 interface CategorizationClient {
@@ -57,6 +58,7 @@ class AiReceiptCategorizer(
 				val categorized = byIndex[index] ?: return@mapIndexed item
 				item.copy(
 					canonicalName = categorized.canonicalName,
+					genericName = categorized.genericName ?: item.genericName,
 					category = categorized.category,
 					subcategory = categorized.subcategory,
 					spendingType = categorized.spendingType,

@@ -46,6 +46,7 @@ object CategorizationJson {
 						canonicalName = item.getString("canonicalName").also {
 							require(it.isNotBlank()) { "canonicalName must not be blank" }
 						},
+						genericName = item.optString("genericName").trim().takeIf(String::isNotBlank),
 						category = category,
 						subcategory = subcategory,
 						spendingType = SpendingType.valueOf(item.getString("spendingType")),
