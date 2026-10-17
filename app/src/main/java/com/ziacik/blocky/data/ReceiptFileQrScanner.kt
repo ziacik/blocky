@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
+import androidx.core.graphics.createBitmap
 import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.vision.barcode.BarcodeScanner
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
@@ -53,7 +54,7 @@ class ReceiptFileQrScanner(private val context: Context) {
 						)
 						val width = (page.width * scale).roundToInt().coerceAtLeast(1)
 						val height = (page.height * scale).roundToInt().coerceAtLeast(1)
-						val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+						val bitmap = createBitmap(width, height)
 						try {
 							bitmap.eraseColor(Color.WHITE)
 							page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
