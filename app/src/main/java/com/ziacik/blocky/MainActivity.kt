@@ -11,7 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -576,30 +576,31 @@ private fun CategoryBreakdown(
 	Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
 		SectionLabel("KAM IŠLI PENIAZE")
 
-		Row(
-			modifier = Modifier.horizontalScroll(rememberScrollState()),
-			horizontalArrangement = Arrangement.spacedBy(8.dp),
-		) {
-			FilterChip(
-				selected = dimension == BreakdownDimension.Category,
-				onClick = { dimension = BreakdownDimension.Category },
-				label = { Text("Kategórie") },
-			)
-			FilterChip(
-				selected = dimension == BreakdownDimension.Subcategory,
-				onClick = { dimension = BreakdownDimension.Subcategory },
-				label = { Text("Podkategórie") },
-			)
-			FilterChip(
-				selected = dimension == BreakdownDimension.SpendingType,
-				onClick = { dimension = BreakdownDimension.SpendingType },
-				label = { Text("Typ") },
-			)
-			FilterChip(
-				selected = dimension == BreakdownDimension.Product,
-				onClick = { dimension = BreakdownDimension.Product },
-				label = { Text("Produkty") },
-			)
+		Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+			Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+				FilterChip(
+					selected = dimension == BreakdownDimension.Category,
+					onClick = { dimension = BreakdownDimension.Category },
+					label = { Text("Kategórie") },
+				)
+				FilterChip(
+					selected = dimension == BreakdownDimension.Subcategory,
+					onClick = { dimension = BreakdownDimension.Subcategory },
+					label = { Text("Podkategórie") },
+				)
+			}
+			Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+				FilterChip(
+					selected = dimension == BreakdownDimension.SpendingType,
+					onClick = { dimension = BreakdownDimension.SpendingType },
+					label = { Text("Typ") },
+				)
+				FilterChip(
+					selected = dimension == BreakdownDimension.Product,
+					onClick = { dimension = BreakdownDimension.Product },
+					label = { Text("Produkty") },
+				)
+			}
 		}
 
 		if (chartEntries.isNotEmpty()) {
@@ -1356,7 +1357,10 @@ private fun ClassificationDialog(
 			Text("Upraviť zaradenie")
 		},
 		text = {
-			Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+			Column(
+				modifier = Modifier.verticalScroll(rememberScrollState()),
+				verticalArrangement = Arrangement.spacedBy(12.dp),
+			) {
 				Text(
 					item.originalName,
 					style = MaterialTheme.typography.bodyLarge,
@@ -1438,7 +1442,7 @@ private fun ClassificationDialog(
 		confirmButton = {
 			TextButton(
 				onClick = {
-					onSave(editor.category, editor.subcategory, editor.spendingType, genericName.trim().takeIf(String::isNotBlank))
+					onSave(editor.category, editor.subcategory, editor.spendingType, genericName.trim())
 				},
 			) {
 				Text("Uložiť")

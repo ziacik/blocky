@@ -16,7 +16,7 @@ class OpenAiCategorizationClientTest {
 				receivedBody = body
 				return """
 					{
-					  "output_text": "{\"items\":[{\"index\":0,\"canonicalName\":\"Biely rožok\",\"category\":\"Potraviny\",\"subcategory\":\"Pečivo\",\"spendingType\":\"ESSENTIAL\",\"confidence\":0.98}]}"
+					  "output_text": "{\"items\":[{\"index\":0,\"canonicalName\":\"Biely rožok\",\"genericName\":\"Rožok\",\"category\":\"Potraviny\",\"subcategory\":\"Pečivo\",\"spendingType\":\"ESSENTIAL\",\"confidence\":0.98}]}"
 					}
 				""".trimIndent()
 			}
@@ -52,6 +52,7 @@ class OpenAiCategorizationClientTest {
 		assertTrue(body.contains("Frapko"))
 		assertTrue(body.contains("do not classify them as Nealkoholické nápoje"))
 		assertEquals("Biely rožok", result.single().canonicalName)
+		assertEquals("Rožok", result.single().genericName)
 		assertEquals("Pečivo", result.single().subcategory)
 		assertEquals(SpendingType.ESSENTIAL, result.single().spendingType)
 	}

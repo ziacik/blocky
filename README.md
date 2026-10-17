@@ -7,9 +7,9 @@ Android appka na evidenciu a analýzu nákupov zo slovenských eKasa bločkov, r
 1. Naskenuje eKasa QR cez Google Code Scanner, importuje obrázok/PDF (eKasa alebo SPAR) alebo synchronizuje Wolt.
 2. Načíta bloček vrátane jednotlivých položiek.
 3. Pošle celý bloček na kategorizáciu: názov obchodníka + všetky položky naraz.
-4. Uloží hlavnú kategóriu, podkategóriu a typ výdavku pre každú položku.
+4. Uloží normalizovaný názov, zovšeobecnený názov produktu (bez značky), hlavnú kategóriu, podkategóriu a typ výdavku pre každú položku.
 5. Umožní konkrétnu položku ručne opraviť; manuálna oprava má prednosť pred neskoršou AI kategorizáciou.
-6. Ukáže výdavky, kategórie, produkty a históriu bločkov.
+6. Ukáže výdavky, kategórie, zovšeobecnené produkty a históriu bločkov vrátane rozkliknutia jednotlivých nákupov.
 
 ## Rakúsky SPAR
 
@@ -25,7 +25,8 @@ Hardcoded pravidlá podľa názvov produktov sa nepoužívajú. Bez kontextu zos
 
 AI klasifikácia pracuje na úrovni celého bločku, takže dostáva aj názov obchodníka a ostatné položky. Výstup musí obsahovať:
 
-- kanonický názov produktu,
+- kanonický čitateľný názov konkrétneho produktu (`canonicalName`),
+- zovšeobecnený názov na agregáciu naprieč značkami (`genericName`),
 - hlavnú kategóriu,
 - povinnú podkategóriu,
 - typ výdavku: `ESSENTIAL`, `REGULAR` alebo `DISCRETIONARY`,
@@ -33,7 +34,7 @@ AI klasifikácia pracuje na úrovni celého bločku, takže dostáva aj názov o
 
 Povolené kategórie a podkategórie sú definované v `ExpenseTaxonomy`. Odpoveď mimo taxonómie sa odmietne.
 
-Manuálna oprava sa ukladá iba pre konkrétnu položku daného bločku. Nie je tu používateľský rule engine.
+Manuálna oprava sa ukladá iba pre konkrétnu položku daného bločku, vrátane zovšeobecneného názvu. Nie je tu používateľský rule engine. Kategória nie je totožná s produktom: napríklad „Eidam“ zostáva „Eidam“, nie všeobecným „Syrom“. Pri starej databáze sa zachovajú všetky položky a novo doplnené `genericName` sa pri dostupnej AI postupne dopočítava (maximálne 50 bločkov pri jednom spustení). Kým nie je dopočítané, súhrny používajú existujúci `canonicalName`.
 
 ## AI kategorizácia
 
@@ -88,6 +89,7 @@ Ak nie je nastavený ani API key ani endpoint, alebo kategorizácia zlyhá, impo
 		{
 			"index": 0,
 			"canonicalName": "Biely rožok",
+			"genericName": "Rožok",
 			"category": "Potraviny",
 			"subcategory": "Pečivo",
 			"spendingType": "ESSENTIAL",

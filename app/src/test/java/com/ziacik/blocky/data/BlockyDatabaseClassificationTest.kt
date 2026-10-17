@@ -266,15 +266,15 @@ class BlockyDatabaseClassificationTest {
 	fun groupsDifferentBrandsByGenericNameAndPreservesManualCorrection() {
 		val receipt = receipt(
 			items = listOf(
-				item("Tami tatranské maslo", "Mliečne výrobky").copy(
+				item("Tami tatranské maslo", "Mliečne výrobky a vajcia").copy(
 					canonicalName = "Tami tatranské maslo",
 					genericName = "Maslo",
 				),
-				item("Rajo maslo", "Mliečne výrobky").copy(
+				item("Rajo maslo", "Mliečne výrobky a vajcia").copy(
 					canonicalName = "Rajo maslo",
 					genericName = "Maslo",
 				),
-				item("Eidam na vyprážanie", "Mliečne výrobky").copy(
+				item("Eidam na vyprážanie", "Mliečne výrobky a vajcia").copy(
 					genericName = "Eidam",
 				),
 			),
@@ -290,7 +290,7 @@ class BlockyDatabaseClassificationTest {
 			receiptId = "receipt-1",
 			itemIndex = 2,
 			category = "Potraviny",
-			subcategory = "Mliečne výrobky",
+			subcategory = "Mliečne výrobky a vajcia",
 			spendingType = SpendingType.REGULAR,
 			genericName = "Syr",
 		)
@@ -304,7 +304,7 @@ class BlockyDatabaseClassificationTest {
 	fun classifiedItemsMissingGenericNameAreQueuedForBackfill() {
 		database.save(
 			receipt(items = listOf(
-				item("RAJO ML.", "Mliečne výrobky").copy(
+				item("RAJO ML.", "Mliečne výrobky a vajcia").copy(
 					canonicalName = "Rajo mlieko",
 					genericName = null,
 					classificationSource = ClassificationSource.AI,

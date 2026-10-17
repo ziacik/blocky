@@ -195,8 +195,8 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 			if (subcategory == null) putNull("subcategory") else put("subcategory", subcategory)
 			put("spending_type", spendingType.name)
 			if (genericName != null) {
-				require(genericName.isNotBlank()) { "genericName must not be blank" }
-				put("generic_name", genericName.trim())
+				val normalized = genericName.trim()
+				if (normalized.isBlank()) putNull("generic_name") else put("generic_name", normalized)
 			}
 			putNull("classification_confidence")
 			put("classification_source", ClassificationSource.USER.name)
