@@ -84,7 +84,7 @@ class SparReceiptParser(private val normalizer: ItemNormalizer) {
 					require(!pendingName.isNullOrBlank()) {
 						"Na účtenke SPAR chýba názov položky s množstvom."
 					}
-					pendingName!!
+					pendingName
 				} else {
 					rawName
 				}
