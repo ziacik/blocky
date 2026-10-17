@@ -4,6 +4,8 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -31,6 +33,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AlertDialog
@@ -127,6 +130,11 @@ class MainActivity : ComponentActivity() {
 		setContent {
 			BlockyTheme {
 				val state by viewModel.state.collectAsState()
+				val filePicker = rememberLauncherForActivityResult(
+					contract = ActivityResultContracts.OpenDocument(),
+				) { uri ->
+					uri?.let(viewModel::importReceiptFile)
+				}
 
 				val scan: () -> Unit = {
 					scanner.startScan()
@@ -158,6 +166,7 @@ class MainActivity : ComponentActivity() {
 						onSettings = viewModel::openSettings,
 						onMonth = viewModel::selectMonth,
 						onScan = scan,
+						onPickFile = { filePicker.launch(arrayOf("image/*", "application/pdf")) },
 					) { contentPadding ->
 						OverviewScreen(
 							state = state,
@@ -177,6 +186,7 @@ class MainActivity : ComponentActivity() {
 						onSettings = viewModel::openSettings,
 						onMonth = viewModel::selectMonth,
 						onScan = scan,
+						onPickFile = { filePicker.launch(arrayOf("image/*", "application/pdf")) },
 					) { contentPadding ->
 						ReceiptsScreen(
 							state = state,
@@ -194,6 +204,7 @@ class MainActivity : ComponentActivity() {
 						onSettings = viewModel::openSettings,
 						onMonth = viewModel::selectMonth,
 						onScan = scan,
+						onPickFile = { filePicker.launch(arrayOf("image/*", "application/pdf")) },
 					) { contentPadding ->
 						ItemsScreen(
 							state = state,
@@ -252,6 +263,7 @@ private fun PrimaryShell(
 	onSettings: () -> Unit,
 	onMonth: (ExpenseMonth) -> Unit,
 	onScan: () -> Unit,
+	onPickFile: () -> Unit,
 	content: @Composable (PaddingValues) -> Unit,
 ) {
 	Scaffold(
@@ -272,6 +284,7 @@ private fun PrimaryShell(
 				onReceipts = onReceipts,
 				onItems = onItems,
 				onScan = onScan,
+				onPickFile = onPickFile,
 			)
 		},
 		content = content,
@@ -355,7 +368,10 @@ private fun BlockyDock(
 	onReceipts: () -> Unit,
 	onItems: () -> Unit,
 	onScan: () -> Unit,
+	onPickFile: () -> Unit,
 ) {
+	var scanMenuExpanded by remember { mutableStateOf(false) }
+
 	Surface(color = Ink) {
 		Row(
 			modifier = Modifier
@@ -383,7 +399,7 @@ private fun BlockyDock(
 					.width(68.dp)
 					.height(68.dp)
 					.background(MaterialTheme.colorScheme.primary)
-					.clickable(enabled = !scanBusy, onClick = onScan),
+					.clickable(enabled = !scanBusy) { scanMenuExpanded = true },
 				contentAlignment = Alignment.Center,
 			) {
 				if (scanBusy) {
@@ -395,9 +411,34 @@ private fun BlockyDock(
 				} else {
 					Icon(
 						imageVector = Icons.Rounded.QrCodeScanner,
-						contentDescription = "Skenovať bloček",
+						contentDescription = "Pridať bloček",
 						modifier = Modifier.size(27.dp),
 						tint = Color.White,
+					)
+				}
+				DropdownMenu(
+					expanded = scanMenuExpanded,
+					onDismissRequest = { scanMenuExpanded = false },
+				) {
+					DropdownMenuItem(
+						text = { Text("Skenovať kamerou") },
+						leadingIcon = {
+							Icon(Icons.Rounded.QrCodeScanner, contentDescription = null)
+						},
+						onClick = {
+							scanMenuExpanded = false
+							onScan()
+						},
+					)
+					DropdownMenuItem(
+						text = { Text("Vybrať obrázok alebo PDF") },
+						leadingIcon = {
+							Icon(Icons.Rounded.FolderOpen, contentDescription = null)
+						},
+						onClick = {
+							scanMenuExpanded = false
+							onPickFile()
+						},
 					)
 				}
 			}

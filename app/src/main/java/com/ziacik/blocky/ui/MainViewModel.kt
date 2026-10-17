@@ -1,6 +1,7 @@
 package com.ziacik.blocky.ui
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.ziacik.blocky.BuildConfig
@@ -11,6 +12,7 @@ import com.ziacik.blocky.data.EkasaClient
 import com.ziacik.blocky.data.EkasaReceiptParser
 import com.ziacik.blocky.data.ExpenseMonth
 import com.ziacik.blocky.data.ReceiptRepository
+import com.ziacik.blocky.data.ReceiptFileQrScanner
 import com.ziacik.blocky.data.RepositorySnapshot
 import com.ziacik.blocky.data.wolt.WoltSessionStore
 import com.ziacik.blocky.data.wolt.WoltSyncService
@@ -79,22 +81,34 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 	}
 
 	fun importReceipt(qrValue: String) {
+		importReceiptFrom { qrValue }
+	}
+
+	fun importReceiptFile(uri: Uri) {
+		importReceiptFrom { ReceiptFileQrScanner(getApplication()).scan(uri) }
+	}
+
+	private fun importReceiptFrom(readQr: () -> String) {
+		if (_state.value.loading) return
+
+		_state.update { it.copy(loading = true, message = null) }
 		viewModelScope.launch {
-			_state.value = _state.value.copy(loading = true, message = null)
 			val result = runCatching {
 				withContext(Dispatchers.IO) {
-					repository.import(qrValue)
+					repository.import(readQr())
 					repository.snapshot(_state.value.selectedMonth)
 				}
 			}
 			result.onSuccess { snapshot ->
 				applySnapshot(snapshot, "Bloček uložený.")
 			}.onFailure { error ->
-				_state.value = _state.value.copy(
-					loading = false,
-					woltConnected = woltSessionStore.isConnected(),
-					message = error.message ?: "Bloček sa nepodarilo načítať.",
-				)
+				_state.update {
+					it.copy(
+						loading = false,
+						woltConnected = woltSessionStore.isConnected(),
+						message = error.message ?: "Bloček sa nepodarilo načítať.",
+					)
+				}
 			}
 		}
 	}
