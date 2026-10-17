@@ -121,7 +121,7 @@ class BlockyDatabase(context: Context) : SQLiteOpenHelper(context, "blocky.db", 
 				""".trimIndent()
 			)
 		}
-		if (oldVersion < 7) {
+		if (oldVersion < 7 && newVersion >= 7) {
 			db.execSQL("ALTER TABLE items ADD COLUMN generic_name TEXT")
 		}
 	}
