@@ -16,6 +16,9 @@ import com.google.mlkit.vision.text.TextRecognizer
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.ziacik.blocky.model.Receipt
 import com.ziacik.blocky.normalization.HeuristicItemNormalizer
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
+import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.text.PDFTextStripper
 import java.io.IOException
 import kotlin.math.roundToInt
 
@@ -25,8 +28,8 @@ sealed interface ScannedReceiptFile {
 }
 
 /**
- * Reuses the existing eKasa QR selection first, falling back to SPAR text OCR.
- * PDFs are rendered on-device and no uploaded document leaves the phone.
+ * Reads digital SPAR PDF text directly, falling back to existing QR/OCR scanning.
+ * No uploaded document leaves the phone.
  */
 class ReceiptFileScanner(private val context: Context) {
 	private val sparParser = SparReceiptParser(HeuristicItemNormalizer())
@@ -67,6 +70,12 @@ class ReceiptFileScanner(private val context: Context) {
 		qrScanner: BarcodeScanner,
 		textRecognizer: TextRecognizer,
 	): ScannedReceiptFile {
+		// SPAR exports are text PDFs: native extraction preserves prices, VAT
+		// codes and two-line quantity rows more reliably than camera OCR.
+		runCatching { sparParser.parse(readPdfText(uri)) }
+			.getOrNull()
+			?.let { return ScannedReceiptFile.Spar(it) }
+
 		val descriptor = context.contentResolver.openFileDescriptor(uri, "r")
 			?: throw IOException("PDF sa nepodarilo otvoriť.")
 		val text = StringBuilder()
@@ -93,6 +102,17 @@ class ReceiptFileScanner(private val context: Context) {
 			}
 		}
 		return ScannedReceiptFile.Spar(sparParser.parse(text.toString()))
+	}
+
+	private fun readPdfText(uri: Uri): String {
+		PDFBoxResourceLoader.init(context.applicationContext)
+		val stream = context.contentResolver.openInputStream(uri)
+			?: throw IOException("PDF sa nepodarilo otvoriť.")
+		return stream.use { input ->
+			PDDocument.load(input).use { document ->
+				PDFTextStripper().apply { setSortByPosition(true) }.getText(document)
+			}
+		}
 	}
 
 	private fun readQr(scanner: BarcodeScanner, image: InputImage): String? =

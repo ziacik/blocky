@@ -69,6 +69,72 @@ class SparReceiptParserTest {
 	}
 
 	@Test
+	fun parsesActualSparPdfLayoutWithFooterBrandAndMultipleQuantities() {
+		// Sanitized example preserving the structure of a real SPAR PDF export:
+		// logo is graphical (not extractable), cashier time differs from the purchase time.
+		val text = """
+			Eisenstädter Straße 29
+			2421 Kittsee
+			Ihr Einkauf am 17.10.2026 um 15:27 Uhr
+			--------------------------------------------
+			                                      EUR
+			ARTIKEL B                           9,99 B
+			GENUSS CRACKER
+			  2    x   0,99                      1,98 A
+			TRINKWASSER 0,75L                    1,39 B
+			  PFAND EINWEG    0,25               0,25 E
+			MILCH 1L                             1,89 K
+			  PFANDFLASCHE                       0,21 K
+			SEMMEL 60G
+			  4    x   0,23                      0,92 K
+			TEE                                  1,59 K
+			--------------------------------------------
+			SUMME:                             18,22
+			ZAHLUNG VISA                       18,22
+			17.10.2026                        15:29:14
+			XXXX XXXX XXXX 0000
+			123456789012345678901234567890
+			Registrierkassensicherheitsverordnung
+			https://rksv.spar.at/example
+			Vielen Dank für Ihren Einkauf bei
+			SPAR
+		""".trimIndent()
+
+		val receipt = parser.parse(text)
+
+		assertEquals("SPAR", receipt.merchant)
+		assertEquals(1822L, receipt.totalCents)
+		assertEquals(8, receipt.items.size)
+		assertEquals("GENUSS CRACKER", receipt.items[1].originalName)
+		assertEquals(2.0, receipt.items[1].quantity, 0.001)
+		assertEquals(198L, receipt.items[1].totalCents)
+		assertEquals("PFAND EINWEG", receipt.items[3].originalName)
+		assertEquals(25L, receipt.items[3].totalCents)
+		assertEquals("SEMMEL 60G", receipt.items[6].originalName)
+		assertEquals(4.0, receipt.items[6].quantity, 0.001)
+		assertEquals("spar:123456789012345678901234567890", receipt.id)
+		assertEquals(
+			LocalDateTime.of(2026, 10, 17, 15, 27)
+				.atZone(ZoneId.of("Europe/Vienna")).toInstant().toEpochMilli(),
+			receipt.issuedAt,
+		)
+		assertTrue(!receipt.rawJson.contains("XXXX XXXX"))
+		assertEquals(1822L, receipt.items.sumOf { it.totalCents })
+	}
+
+	@Test
+	fun rejectsSumMismatchWithRealSparFooter() {
+		assertInvalid("""
+			Ihr Einkauf am 17.10.2026 um 15:27 Uhr
+			EUR
+			BROT 1,29 A
+			SUMME: 1,39
+			Vielen Dank für Ihren Einkauf bei
+			SPAR
+		""")
+	}
+
+	@Test
 	fun rejectsNonSparReceipt() {
 		assertInvalid("""
 			OTHER MARKET
